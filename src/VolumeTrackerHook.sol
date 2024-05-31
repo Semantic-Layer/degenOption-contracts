@@ -23,10 +23,20 @@ contract VolumeTrackerHook is BaseHook, ERC1155 {
     // a single hook contract should be able to service multiple pools
     // ---------------------------------------------------------------
     uint256 public ratio;
+    address public developer;
 
     mapping(address user => uint256 swapAmount) public afterSwapCount;
 
-    constructor(IPoolManager _poolManager, string memory _uri) BaseHook(_poolManager) ERC1155(_uri) {}
+    constructor(IPoolManager _poolManager, string memory _uri, address _developer, uint256 _ratio) 
+    BaseHook(_poolManager) ERC1155(_uri) {
+        ratio = _ratio;
+        developer = _developer;
+    }
+
+    modifier onlyDeveloper {
+        require(msg.sender == developer);
+        _;
+    }
 
     function getHookPermissions() public pure override returns (Hooks.Permissions memory) {
         return Hooks.Permissions({
@@ -82,9 +92,9 @@ contract VolumeTrackerHook is BaseHook, ERC1155 {
         return (this.afterSwap.selector,0);
     }
 
-    function updateRatio(uint256 newRatio) public {
+    function updateRatio(uint256 newRatio) public onlyDeveloper {
         require(newRatio != 0);
-        
+
         ratio = newRatio;
     }
 
