@@ -22,6 +22,7 @@ contract VolumeTrackerHook is BaseHook, ERC1155 {
     // state variables should typically be unique to a pool
     // a single hook contract should be able to service multiple pools
     // ---------------------------------------------------------------
+    uint256 public ratio;
 
     mapping(address user => uint256 swapAmount) public afterSwapCount;
 
@@ -76,9 +77,15 @@ contract VolumeTrackerHook is BaseHook, ERC1155 {
         uint256 positionId = uint256(keccak256(abi.encode(key.toId())));
 
         afterSwapCount[user] += swapAmount;
-        _mint(user, positionId, swapAmount, "");
+        _mint(user, positionId, swapAmount / ratio, "");
 
         return (this.afterSwap.selector,0);
+    }
+
+    function updateRatio(uint256 newRatio) public {
+        require(newRatio != 0);
+        
+        ratio = newRatio;
     }
 
 }
