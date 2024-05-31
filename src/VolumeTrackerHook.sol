@@ -73,7 +73,10 @@ contract VolumeTrackerHook is BaseHook, ERC1155 {
             ? uint256(-swapParams.amountSpecified)
             : uint256(int256(-delta.amount0()));
 
+        uint256 positionId = uint256(keccak256(abi.encode(key.toId())));
+
         afterSwapCount[user] += swapAmount;
+        _mint(user, positionId, swapAmount, "");
 
         return (this.afterSwap.selector,0);
     }
