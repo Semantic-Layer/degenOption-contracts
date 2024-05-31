@@ -29,6 +29,10 @@ contract TestVolumeTrackerHook is Test, Deployers {
     PoolId poolId;
     VolumeTrackerHook hook;
 
+    uint256 internal devPrivatekey = 0xde111;
+
+    address internal dev = vm.addr(devPrivatekey);
+
     function setUp() public {
         // creates the pool manager, utility routers, and test tokens
         Deployers.deployFreshManagerAndRouters();
@@ -36,12 +40,11 @@ contract TestVolumeTrackerHook is Test, Deployers {
 
         // Deploy the hook to an address with the correct flags
         uint160 flags = uint160(
-            Hooks.BEFORE_SWAP_FLAG | Hooks.AFTER_SWAP_FLAG | Hooks.BEFORE_ADD_LIQUIDITY_FLAG
-                | Hooks.BEFORE_REMOVE_LIQUIDITY_FLAG
+            Hooks.AFTER_SWAP_FLAG
         );
         (address hookAddress, bytes32 salt) =
-            HookMiner.find(address(this), flags, type(VolumeTrackerHook).creationCode, abi.encode(address(manager)));
-        hook = new VolumeTrackerHook{salt: salt}(IPoolManager(address(manager)));
+            HookMiner.find(address(this), flags, type(VolumeTrackerHook).creationCode, abi.encode(address(manager),"", dev, 1));
+        hook = new VolumeTrackerHook{salt: salt}(IPoolManager(address(manager)),"", dev, 1);
         require(address(hook) == hookAddress, "VolumeTrackerHookTest: hook address mismatch");
 
         // Create the pool
@@ -50,6 +53,7 @@ contract TestVolumeTrackerHook is Test, Deployers {
         manager.initialize(key, SQRT_PRICE_1_1, ZERO_BYTES);
 
         // Provide liquidity to the pool
+/*
         modifyLiquidityRouter.modifyLiquidity(key, IPoolManager.ModifyLiquidityParams(-60, 60, 10 ether, 0), ZERO_BYTES);
         modifyLiquidityRouter.modifyLiquidity(
             key, IPoolManager.ModifyLiquidityParams(-120, 120, 10 ether, 0), ZERO_BYTES
@@ -59,6 +63,66 @@ contract TestVolumeTrackerHook is Test, Deployers {
             IPoolManager.ModifyLiquidityParams(TickMath.minUsableTick(60), TickMath.maxUsableTick(60), 10 ether, 0),
             ZERO_BYTES
         );
+*/
     }
+
+    function test_addLiquidityAndSwap() public {
+        // How we landed on 0.003 ether here is based on computing value of x and y given
+        // total value of delta L (liquidity delta) = 1 ether
+        // This is done by computing x and y from the equation shown in Ticks and Q64.96 Numbers lesson
+        // View the full code for this lesson on GitHub which has additional comments
+        // showing the exact computation and a Python script to do that calculation for you
+        modifyLiquidityRouter.modifyLiquidity{value: 0.003 ether}(
+            key,
+            IPoolManager.ModifyLiquidityParams({
+                tickLower: -60,
+                tickUpper: 60,
+                liquidityDelta: 1 ether, 
+                salt: 0
+            }),
+            ZERO_BYTES
+        );
+/*
+        uint256 pointsBalanceAfterAddLiquidity = hook.balanceOf(address(this));
+
+        // The exact amount of ETH we're adding (x)
+        // is roughly 0.299535... ETH
+        // Our original POINTS balance was 0
+                // so after adding liquidity we should have roughly 0.299535... POINTS tokens
+        assertApproxEqAbs(
+            pointsBalanceAfterAddLiquidity - pointsBalanceOriginal,
+            2995354955910434,
+            0.0001 ether // error margin for precision loss
+        );
+*/
+        //Check the mapping before the swap
+        //hook.afterSwapCount(address(this));
+        //console2.log(hook.afterSwapCount(address(this)));
+
+        // Now we swap
+        // We will swap 0.001 ether for tokens
+        // We should get 20% of 0.001 * 10**18 points
+        // = 2 * 10**14
+        swapRouter.swap{value: 0.001 ether}(
+            key,
+            IPoolManager.SwapParams({
+                zeroForOne: true,
+                amountSpecified: -0.001 ether, // Exact input for output swap
+                sqrtPriceLimitX96: TickMath.MIN_SQRT_PRICE + 1
+            }),
+            PoolSwapTest.TestSettings({takeClaims: true, settleUsingBurn: false}),
+            ZERO_BYTES
+        );
+/*
+        uint256 pointsBalanceAfterSwap = hook.balanceOf(address(this));
+        assertEq(
+            pointsBalanceAfterSwap - pointsBalanceAfterAddLiquidity,
+            2 * 10 ** 14
+        );
+*/
+        // Check the mapping after the swap
+        //hook.afterSwapCount(address(this));
+        //console2.log(hook.afterSwapCount(address(this)));
+  }   
 
 }
