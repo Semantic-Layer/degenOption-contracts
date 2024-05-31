@@ -55,10 +55,10 @@ contract VolumeTrackerHook is BaseHook, ERC1155 {
         returns (bytes4, int128)
     {
 
-        // We only that buy the token we want
-        // if (key.currency1.toId() == uint160(Currency.unwrap(currency))) return (this.afterSwap.selector, 0);
+        // If this is not an ETH-GUH pool with this hook attached, ignore
+        if (!key.currency0.isNative()) return (this.afterSwap.selector, 0);
 
-        // We only consider swaps in one direction (in our case when user buys GUH)
+        // We only consider the case when users sell ETH to buy GUH
         if (!swapParams.zeroForOne) return (this.afterSwap.selector, 0);
 
         // if amountSpecified < 0:
@@ -74,7 +74,9 @@ contract VolumeTrackerHook is BaseHook, ERC1155 {
 
         afterSwapCount[user] += swapAmount;
 
-        return (this.afterAddLiquidity.selector,0);
+        _mint(user, positionId, swapAmount, "");
+
+        return (this.afterSwap.selector,0);
     }
 
 }
