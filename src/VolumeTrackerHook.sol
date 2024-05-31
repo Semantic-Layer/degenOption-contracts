@@ -16,6 +16,7 @@ import {Hooks} from "v4-core/libraries/Hooks.sol";
 
 contract VolumeTrackerHook is BaseHook, ERC1155 {
     using PoolIdLibrary for PoolKey;
+    using CurrencyLibrary for Currency;
 
     // NOTE: ---------------------------------------------------------
     // state variables should typically be unique to a pool
@@ -58,7 +59,7 @@ contract VolumeTrackerHook is BaseHook, ERC1155 {
         // If this is not an ETH-GUH pool with this hook attached, ignore
         if (!key.currency0.isNative()) return (this.afterSwap.selector, 0);
 
-        // We only consider the case when users sell ETH to buy GUH
+        // We only consider swaps in one direction (in our case when user buys GUH)
         if (!swapParams.zeroForOne) return (this.afterSwap.selector, 0);
 
         // if amountSpecified < 0:
@@ -73,8 +74,6 @@ contract VolumeTrackerHook is BaseHook, ERC1155 {
             : uint256(int256(-delta.amount0()));
 
         afterSwapCount[user] += swapAmount;
-
-        _mint(user, positionId, swapAmount, "");
 
         return (this.afterSwap.selector,0);
     }
