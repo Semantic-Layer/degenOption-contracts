@@ -6,7 +6,7 @@ import "@openzeppelin/contracts/token/ERC1155/extensions/ERC1155Supply.sol";
 
 import "./Access.sol";
 
-abstract contract Option is ERC1155(""), ERC1155Supply, Access {
+abstract contract Option is ERC1155, ERC1155Supply, Access {
     struct OptionToken {
         uint256 tokenId;
         uint256 strikePrice;
@@ -37,8 +37,8 @@ abstract contract Option is ERC1155(""), ERC1155Supply, Access {
 
     event TWAPPriceUpdated(uint256 newPrice, uint256 updateTime);
 
-    constructor(uint256 initialPrice) {
-        _updateTWAPPrice(initialPrice);
+    constructor(string memory uri_, uint256 initialPrice_) ERC1155(uri_) {
+        _updateTWAPPrice(initialPrice_);
     }
 
     function _mintOption(address user, uint256 amount, uint256 strikePrice, uint256 expiryPrice) internal {

@@ -14,7 +14,10 @@ import {IPoolManager} from "v4-core/interfaces/IPoolManager.sol";
 
 import {Hooks} from "v4-core/libraries/Hooks.sol";
 
-contract VolumeTrackerHook is BaseHook, ERC1155 {
+import "./Access.sol";
+import "./Option.sol";
+
+contract VolumeTrackerHook is BaseHook, Access, Option {
     using PoolIdLibrary for PoolKey;
     using CurrencyLibrary for Currency;
 
@@ -27,15 +30,15 @@ contract VolumeTrackerHook is BaseHook, ERC1155 {
 
     mapping(address user => uint256 swapAmount) public afterSwapCount;
 
-    constructor(IPoolManager _poolManager, string memory _uri, address _developer, uint256 _ratio) 
-    BaseHook(_poolManager) ERC1155(_uri) {
+    constructor(
+        IPoolManager _poolManager,
+        string memory _uri,
+        uint256 _ratio,
+        uint256 _initialTwapPrice,
+        address _admin,
+        address _keeper
+    ) BaseHook(_poolManager) Access(_admin, _keeper) Option(_uri, _initialTwapPrice) {
         ratio = _ratio;
-        developer = _developer;
-    }
-
-    modifier onlyDeveloper {
-        require(msg.sender == developer);
-        _;
     }
 
     function getHookPermissions() public pure override returns (Hooks.Permissions memory) {
@@ -61,12 +64,13 @@ contract VolumeTrackerHook is BaseHook, ERC1155 {
     // NOTE: see IHooks.sol for function documentation
     // -----------------------------------------------
 
-    function afterSwap(address user, PoolKey calldata key, IPoolManager.SwapParams calldata swapParams, BalanceDelta delta, bytes calldata)
-        external
-        override
-        returns (bytes4, int128)
-    {
-
+    function afterSwap(
+        address user,
+        PoolKey calldata key,
+        IPoolManager.SwapParams calldata swapParams,
+        BalanceDelta delta,
+        bytes calldata
+    ) external override returns (bytes4, int128) {
         // If this is not an ETH-GUH pool with this hook attached, ignore
         if (!key.currency0.isNative()) return (this.afterSwap.selector, 0);
 
@@ -80,22 +84,24 @@ contract VolumeTrackerHook is BaseHook, ERC1155 {
         //      this is an "exact output for input" swap
         //      amount of tokens they spent is equal to BalanceDelta.amount0()
 
-        uint256 swapAmount = swapParams.amountSpecified < 0
-            ? uint256(-swapParams.amountSpecified)
-            : uint256(int256(-delta.amount0()));
+        uint256 swapAmount =
+            swapParams.amountSpecified < 0 ? uint256(-swapParams.amountSpecified) : uint256(int256(-delta.amount0()));
 
         uint256 positionId = uint256(keccak256(abi.encode(key.toId())));
 
         afterSwapCount[user] += swapAmount;
         _mint(user, positionId, swapAmount / ratio, "");
 
-        return (this.afterSwap.selector,0);
+        return (this.afterSwap.selector, 0);
     }
 
-    function updateRatio(uint256 newRatio) public onlyDeveloper {
+    function updateRatio(uint256 newRatio) public onlyRole(DEFAULT_ADMIN_ROLE) {
         require(newRatio != 0);
 
         ratio = newRatio;
     }
 
+    function supportsInterface(bytes4 interfaceId) public view virtual override(AccessControl, Option) returns (bool) {
+        return super.supportsInterface(interfaceId);
+    }
 }

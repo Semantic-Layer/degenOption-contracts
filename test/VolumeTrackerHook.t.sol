@@ -30,8 +30,10 @@ contract TestVolumeTrackerHook is Test, Deployers {
     VolumeTrackerHook hook;
 
     uint256 internal devPrivatekey = 0xde111;
+    uint256 internal keeperPrivateKey = 0x3333;
 
     address internal dev = vm.addr(devPrivatekey);
+    address internal keeper = vm.addr(keeperPrivateKey);
 
     function setUp() public {
         // creates the pool manager, utility routers, and test tokens
@@ -39,12 +41,11 @@ contract TestVolumeTrackerHook is Test, Deployers {
         Deployers.deployMintAndApprove2Currencies();
 
         // Deploy the hook to an address with the correct flags
-        uint160 flags = uint160(
-            Hooks.AFTER_SWAP_FLAG
+        uint160 flags = uint160(Hooks.AFTER_SWAP_FLAG);
+        (address hookAddress, bytes32 salt) = HookMiner.find(
+            address(this), flags, type(VolumeTrackerHook).creationCode, abi.encode(address(manager), "", dev, 1)
         );
-        (address hookAddress, bytes32 salt) =
-            HookMiner.find(address(this), flags, type(VolumeTrackerHook).creationCode, abi.encode(address(manager),"", dev, 1));
-        hook = new VolumeTrackerHook{salt: salt}(IPoolManager(address(manager)),"", dev, 1);
+        hook = new VolumeTrackerHook{salt: salt}(IPoolManager(address(manager)), "", 1, 0, dev, keeper);
         require(address(hook) == hookAddress, "VolumeTrackerHookTest: hook address mismatch");
 
         // Create the pool
@@ -53,7 +54,7 @@ contract TestVolumeTrackerHook is Test, Deployers {
         manager.initialize(key, SQRT_PRICE_1_1, ZERO_BYTES);
 
         // Provide liquidity to the pool
-/*
+        /*
         modifyLiquidityRouter.modifyLiquidity(key, IPoolManager.ModifyLiquidityParams(-60, 60, 10 ether, 0), ZERO_BYTES);
         modifyLiquidityRouter.modifyLiquidity(
             key, IPoolManager.ModifyLiquidityParams(-120, 120, 10 ether, 0), ZERO_BYTES
@@ -63,7 +64,7 @@ contract TestVolumeTrackerHook is Test, Deployers {
             IPoolManager.ModifyLiquidityParams(TickMath.minUsableTick(60), TickMath.maxUsableTick(60), 10 ether, 0),
             ZERO_BYTES
         );
-*/
+        */
     }
 
     function test_addLiquidityAndSwap() public {
@@ -74,15 +75,10 @@ contract TestVolumeTrackerHook is Test, Deployers {
         // showing the exact computation and a Python script to do that calculation for you
         modifyLiquidityRouter.modifyLiquidity{value: 0.003 ether}(
             key,
-            IPoolManager.ModifyLiquidityParams({
-                tickLower: -60,
-                tickUpper: 60,
-                liquidityDelta: 1 ether, 
-                salt: 0
-            }),
+            IPoolManager.ModifyLiquidityParams({tickLower: -60, tickUpper: 60, liquidityDelta: 1 ether, salt: 0}),
             ZERO_BYTES
         );
-/*
+        /*
         uint256 pointsBalanceAfterAddLiquidity = hook.balanceOf(address(this));
 
         // The exact amount of ETH we're adding (x)
@@ -94,7 +90,7 @@ contract TestVolumeTrackerHook is Test, Deployers {
             2995354955910434,
             0.0001 ether // error margin for precision loss
         );
-*/
+        */
         //Check the mapping before the swap
         //hook.afterSwapCount(address(this));
         //console2.log(hook.afterSwapCount(address(this)));
@@ -113,16 +109,15 @@ contract TestVolumeTrackerHook is Test, Deployers {
             PoolSwapTest.TestSettings({takeClaims: true, settleUsingBurn: false}),
             ZERO_BYTES
         );
-/*
+        /*
         uint256 pointsBalanceAfterSwap = hook.balanceOf(address(this));
         assertEq(
             pointsBalanceAfterSwap - pointsBalanceAfterAddLiquidity,
             2 * 10 ** 14
         );
-*/
+        */
         // Check the mapping after the swap
         //hook.afterSwapCount(address(this));
         //console2.log(hook.afterSwapCount(address(this)));
-  }   
-
+    }
 }
