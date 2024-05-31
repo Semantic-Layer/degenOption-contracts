@@ -94,6 +94,10 @@ contract TestVolumeTrackerHook is Test, Deployers {
             2995354955910434,
             0.0001 ether // error margin for precision loss
         );
+*/
+        //Check the mapping before the swap
+        //hook.afterSwapCount(address(this));
+        //console2.log(hook.afterSwapCount(address(this)));
 
         // Now we swap
         // We will swap 0.001 ether for tokens
@@ -107,13 +111,18 @@ contract TestVolumeTrackerHook is Test, Deployers {
                 sqrtPriceLimitX96: TickMath.MIN_SQRT_PRICE + 1
             }),
             PoolSwapTest.TestSettings({takeClaims: true, settleUsingBurn: false}),
-            hookData
+            ZERO_BYTES
         );
+/*
         uint256 pointsBalanceAfterSwap = hook.balanceOf(address(this));
         assertEq(
             pointsBalanceAfterSwap - pointsBalanceAfterAddLiquidity,
             2 * 10 ** 14
         );
-*/  }   
+*/
+        // Check the mapping after the swap
+        //hook.afterSwapCount(address(this));
+        //console2.log(hook.afterSwapCount(address(this)));
+  }   
 
 }
