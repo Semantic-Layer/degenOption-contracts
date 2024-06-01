@@ -73,7 +73,7 @@ abstract contract Option is ERC1155, ERC1155Supply, Access {
     function _mintOption(address user, uint256 amount, uint256 strikePrice, uint256 expiryPrice) internal {
         bytes32 optionKey = getOptionKey(strikePrice, expiryPrice);
         uint256 id = option2TokenId[optionKey];
-        bool isValid = isOptionTokenValid(id, expiryPrice);
+        bool isValid = isOptionTokenValid(id);
 
         if (isValid) {
             // a valid option token already exists
@@ -152,13 +152,16 @@ abstract contract Option is ERC1155, ERC1155Supply, Access {
      *  true: valid. can be exercised
      *  false: option token does not exist or has been voided
      * @param tokenId_ token id
-     * @param expiryPrice_ opiton expiry price
      */
-    function isOptionTokenValid(uint256 tokenId_, uint256 expiryPrice_) public view returns (bool) {
+    function isOptionTokenValid(uint256 tokenId_) public view returns (bool) {
         if (tokenId_ == 0) {
             return false;
         }
-        return expiryPrice2TokenIds[expiryPrice_].contains(tokenId_);
+        uint256 expiryPrice = tokenId2Option[tokenId_].expiryPrice;
+        if (expiryPrice == 0) {
+            return false;
+        }
+        return expiryPrice2TokenIds[expiryPrice].contains(tokenId_);
     }
 
     /**
