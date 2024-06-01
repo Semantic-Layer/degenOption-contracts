@@ -9,7 +9,7 @@ import "./Access.sol";
 /**
  * @title ERC1155 Option Contract
  * @author @semanticlayer
- * @dev the prices used in the contract refer to `sqrt(1.0001^tick) * 2^96` (tick.getSqrtPriceAtTick()) 
+ * @dev the prices used in the contract refer to `sqrt(1.0001^tick) * 2^96` (tick.getSqrtPriceAtTick())
  */
 abstract contract Option is ERC1155, ERC1155Supply, Access {
     using EnumerableSet for EnumerableSet.UintSet;
