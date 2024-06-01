@@ -107,6 +107,6 @@ contract NarrativeController is IERC1155Receiver, Ownable2Step {
     }
 
     function supportsInterface(bytes4 interfaceId) public view virtual override returns (bool) {
-        return this.supportsInterface(interfaceId);
+        return interfaceId == type(IERC1155Receiver).interfaceId;
     }
 }
