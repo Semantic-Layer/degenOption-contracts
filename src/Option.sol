@@ -156,6 +156,33 @@ abstract contract Option is ERC1155, ERC1155Supply, Access {
         return expiryPrice2TokenIds[expiryPrice_].contains(tokenId_);
     }
 
+    /**
+     * @notice given an expiry price, return the total number of valid option tokens.
+     * @param expiryPrice_  expiry price
+     */
+    function getNumberOfValidToken(uint256 expiryPrice_) public view returns (uint256) {
+        return expiryPrice2TokenIds[expiryPrice_].length();
+    }
+
+    /**
+     * @notice given the expiry price, return an array of valid token ids from index start to end
+     * @dev
+     * Note that there are no guarantees on the ordering of values inside the
+     * array, and it may change when more values are added or removed.
+     * @param expiryPrice_ option expiry price
+     * @param start_ start index. it must <= end_
+     * @param end_  end index. it must be strictly less than the enumerate set length (fetch length by function `getNumberOfValidToken()`)
+     */
+    function getValidTokenIdByExpiryPrice(uint256 expiryPrice_, uint256 start_, uint256 end_)
+        public
+        view
+        returns (uint256[] memory validTokenIds)
+    {
+        for (uint256 i = start_; i <= end_; i++) {
+            validTokenIds[i - start_] = (expiryPrice2TokenIds[expiryPrice_].at(i));
+        }
+    }
+
     // ==================== private functions ====================
     /**
      * @dev it deletes all the tokens under expiryPrice2TokenIds[expiryPrice_] if the expiryPrice_ <= twapPrice_
