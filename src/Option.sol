@@ -6,6 +6,10 @@ import "@openzeppelin/contracts/token/ERC1155/extensions/ERC1155Supply.sol";
 import "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
 import "./Access.sol";
 
+/**
+ * @title ERC1155 Option Contract
+ * @author @semanticlayer
+ */
 abstract contract Option is ERC1155, ERC1155Supply, Access {
     using EnumerableSet for EnumerableSet.UintSet;
 
