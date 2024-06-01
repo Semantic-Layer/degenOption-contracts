@@ -3,10 +3,12 @@ pragma solidity 0.8.25;
 
 import "@openzeppelin/contracts/token/ERC1155/ERC1155.sol";
 import "@openzeppelin/contracts/token/ERC1155/extensions/ERC1155Supply.sol";
-
+import "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
 import "./Access.sol";
 
 abstract contract Option is ERC1155, ERC1155Supply, Access {
+    using EnumerableSet for EnumerableSet.UintSet;
+
     ///@dev struct to store the Option info of an option token
     /// option with the same strike price and expiry price will be minted under the same token id
     // a new tokenId will be used for the option if the previous option token has been voided
@@ -38,7 +40,8 @@ abstract contract Option is ERC1155, ERC1155Supply, Access {
     mapping(uint256 tokenId => OptionToken option) public tokenId2Option;
 
     ///@notice return the valid option token ids of the expiry price
-    mapping(uint256 expiryPrice => uint256[] tokenIds) public expiryPrice2TokenIds;
+    ///@dev use EnumerableSet instead of array as we need to check if the token id is valid upton minting new option tokens
+    mapping(uint256 expiryPrice => EnumerableSet.UintSet tokenIds) private expiryPrice2TokenIds;
 
     ///@notice get the current valid token Id with option strike price and expiry price
     ///@dev key is keccake256(abi.encode(strikePrice, expiryPrice))
@@ -83,7 +86,7 @@ abstract contract Option is ERC1155, ERC1155Supply, Access {
                 OptionToken({tokenId: newTokenId, strikePrice: strikePrice, expiryPrice: expiryPrice});
 
             // add this new tokenId into expiryPrice2TokenIds
-            expiryPrice2TokenIds[expiryPrice].push(nextTokenId);
+            expiryPrice2TokenIds[expiryPrice].add(nextTokenId);
 
             // update option2TokenId
             option2TokenId[optionKey] = nextTokenId;
@@ -150,23 +153,7 @@ abstract contract Option is ERC1155, ERC1155Supply, Access {
         if (tokenId_ == 0) {
             return false;
         }
-        return arrayContains(expiryPrice2TokenIds[expiryPrice_], tokenId_);
-    }
-
-    /**
-     * @notice check if an item exists in the array.
-     * true: exists
-     * false: does not exist
-     * @param array_ array to check
-     * @param item_  the item we search for
-     */
-    function arrayContains(uint256[] memory array_, uint256 item_) public pure returns (bool) {
-        for (uint256 i = 0; i < array_.length; i++) {
-            if (array_[i] == item_) {
-                return true;
-            }
-        }
-        return false;
+        return expiryPrice2TokenIds[expiryPrice_].contains(tokenId_);
     }
 
     // ==================== private functions ====================
@@ -177,6 +164,18 @@ abstract contract Option is ERC1155, ERC1155Supply, Access {
      */
     function _voidOption(uint256 twapPrice_, uint256 expiryPrice_) private {
         if (twapPrice_ <= expiryPrice_) {
+            // Get the set of token IDs associated with the expiry price
+            EnumerableSet.UintSet storage tokenIds = expiryPrice2TokenIds[expiryPrice_];
+
+            // Iterate over the set and remove each token ID
+            while (tokenIds.length() > 0) {
+                uint256 tokenId = tokenIds.at(0);
+                tokenIds.remove(tokenId);
+            }
+
+            // Optionally, delete the entry from the mapping if the set is empty
+            // This is optional since the set will be empty and won't consume much gas, but
+            // it might be useful to remove the mapping entry entirely
             delete expiryPrice2TokenIds[expiryPrice_];
         }
     }
