@@ -3,6 +3,7 @@ pragma solidity 0.8.25;
 
 import "@openzeppelin/contracts/token/ERC1155/ERC1155.sol";
 import "@openzeppelin/contracts/token/ERC1155/extensions/ERC1155Supply.sol";
+import "@openzeppelin/contracts/token/ERC1155/extensions/ERC1155Burnable.sol";
 import "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
 
 import "./Access.sol";
@@ -12,7 +13,7 @@ import "./Access.sol";
  * @author @semanticlayer
  * @dev the prices used in the contract refer to `sqrt(1.0001^tick) * 2^96` (tick.getSqrtPriceAtTick())
  */
-abstract contract Option is ERC1155, ERC1155Supply, Access {
+abstract contract Option is ERC1155, ERC1155Supply, ERC1155Burnable, Access {
     using EnumerableSet for EnumerableSet.UintSet;
 
     ///@dev struct to store the Option info of an option token

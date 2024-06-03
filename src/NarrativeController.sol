@@ -81,10 +81,10 @@ contract NarrativeController is IERC1155Receiver, Ownable2Step {
             revert InsufficientETHBalance();
         }
 
-        // maybe we should just burn those option tokens?
-        OPTION.safeTransferFrom(msg.sender, address(this), tokenId, amount, "");
+        // burn option token
+        OPTION.burn(msg.sender, tokenId, amount);
+        // transfer token bought to user
         TOKEN.safeTransfer(msg.sender, amount);
-
         _buyBackHook(ethAmountToPay);
     }
 
