@@ -18,7 +18,7 @@ contract NarrativeController is IERC1155Receiver, Ownable2Step {
 
     IERC20 public constant WETH = IERC20(0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2);
 
-    ///@notice the token user can buy with option tokens
+    ///@notice the token user can buy with option tokens. e.g. protocol governance token
     IERC20 public immutable TOKEN;
 
     ///@notice option token contract (ERC1155)
