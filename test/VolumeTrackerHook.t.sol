@@ -31,9 +31,11 @@ contract TestVolumeTrackerHook is Test, Deployers {
 
     uint256 internal devPrivatekey = 0xde111;
     uint256 internal keeperPrivateKey = 0x3333;
+    uint256 internal guhPrivateKey = 0x1111;
 
     address internal dev = vm.addr(devPrivatekey);
     address internal keeper = vm.addr(keeperPrivateKey);
+    address internal guh = vm.addr(guhPrivateKey);
 
     function setUp() public {
         // creates the pool manager, utility routers, and test tokens
@@ -43,9 +45,9 @@ contract TestVolumeTrackerHook is Test, Deployers {
         // Deploy the hook to an address with the correct flags
         uint160 flags = uint160(Hooks.AFTER_SWAP_FLAG);
         (address hookAddress, bytes32 salt) = HookMiner.find(
-            address(this), flags, type(VolumeTrackerHook).creationCode, abi.encode(address(manager), "", 1, 0, dev, keeper)
+            address(this), flags, type(VolumeTrackerHook).creationCode, abi.encode(address(manager), "", 1, 0, guh, dev, keeper)
         );
-        hook = new VolumeTrackerHook{salt: salt}(IPoolManager(address(manager)), "", 1, 0, dev, keeper);
+        hook = new VolumeTrackerHook{salt: salt}(IPoolManager(address(manager)), "", 1, 0, guh, dev, keeper);
         require(address(hook) == hookAddress, "VolumeTrackerHookTest: hook address mismatch");
 
         // Create the pool
