@@ -73,14 +73,25 @@ contract VolumeTrackerHook is BaseHook, Access, Option {
         BalanceDelta delta,
         bytes calldata
     ) external override returns (bytes4, int128) {
-        // If this is not an ETH-GUH pool with this hook attached, ignore
-        if (!key.currency0.isNative()) return (this.afterSwap.selector, 0);
+        if(Currency.wrap(address(0)) < Currency.wrap(guh)){
+            // If this is not an ETH-GUH pool with this hook attached, ignore
+            if (!key.currency0.isNative()) return (this.afterSwap.selector, 0);
 
-        // If this is not an ETH-GUH pool with this hook attached, ignore
-        if (Currency.unwrap(key.currency1) != guh) return (this.afterSwap.selector, 0);
+            // If this is not an ETH-GUH pool with this hook attached, ignore
+            if (Currency.unwrap(key.currency1) != guh) return (this.afterSwap.selector, 0);
 
-        // We only consider swaps in one direction (in our case when user buys GUH)
-        if (!swapParams.zeroForOne) return (this.afterSwap.selector, 0);
+            // We only consider swaps in one direction (in our case when user buys GUH)
+            if (!swapParams.zeroForOne) return (this.afterSwap.selector, 0);
+        } else {
+            // If this is not an GUH-ETH pool with this hook attached, ignore
+            if (!key.currency1.isNative()) return (this.afterSwap.selector, 0);
+
+            // If this is not an GUH-ETH pool with this hook attached, ignore
+            if (Currency.unwrap(key.currency0) != guh) return (this.afterSwap.selector, 0);
+
+            // We only consider swaps in one direction (in our case when user buys GUH)
+            if (swapParams.zeroForOne) return (this.afterSwap.selector, 0);            
+        }
 
         // if amountSpecified < 0:
         //      this is an "exact input for output" swap
