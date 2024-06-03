@@ -62,27 +62,28 @@ contract NarrativeController is IERC1155Receiver, Ownable2Step {
             // partial redeem
             amount = poolBalance;
         }
-        // check if the tokenId is valid
+
+        // check if the option tokenId is valid
         if (!OPTION.isOptionTokenValid(tokenId)) {
             revert InValidOptionTokenId();
         }
 
-        // check option token balance
+        // check user's option token balance
         if (OPTION.balanceOf(msg.sender, tokenId) < amount) {
             revert InsufficientOptionTokenBalance();
         }
 
+        // calculate how much user should pay
         (, uint256 strikePrice,) = OPTION.tokenId2Option(tokenId);
-
         uint256 ethAmountToPay =
             TickPriceLib.getQuoteAtSqrtPrice(uint160(strikePrice), uint128(amount), address(WETH), address(TOKEN));
-
         if (msg.value < ethAmountToPay) {
             revert InsufficientETHBalance();
         }
 
-        // burn option token
+        // burn user's option token
         OPTION.burn(msg.sender, tokenId, amount);
+
         // transfer token bought to user
         TOKEN.safeTransfer(msg.sender, amount);
         _buyBackHook(ethAmountToPay);
