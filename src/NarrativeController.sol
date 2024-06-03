@@ -49,6 +49,11 @@ contract NarrativeController is IERC1155Receiver, Ownable2Step {
         SWAP_ROUTER = swapRouter;
     }
 
+    /**
+     * @notice exercise option by providng the option token id
+     * @param tokenId option token id
+     * @param amount the amount of options user wants to exercise
+     */
     function exerciseOptionByTokenId(uint256 tokenId, uint256 amount) public payable {
         // check pool token balance. if balance <= amount. we only redeem partially
         uint256 poolBalance = TOKEN.balanceOf(address(this));
@@ -81,17 +86,6 @@ contract NarrativeController is IERC1155Receiver, Ownable2Step {
         TOKEN.safeTransfer(msg.sender, amount);
 
         _buyBackHook(ethAmountToPay);
-    }
-
-    function exerciseOptionByPrices(address strikePrice, address expiryPrice, uint256 amount) public payable {
-        // get the option token id
-        uint256 tokenId = OPTION.option2TokenId(keccak256(abi.encode(strikePrice, expiryPrice)));
-        exerciseOptionByTokenId(tokenId, amount);
-    }
-
-    function setBuyBackHook(bool val) public onlyOwner {
-        buyBackHookControl = val;
-        emit BuyBackHookControllSet(val);
     }
 
     // ================= internal function ==============
