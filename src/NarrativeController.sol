@@ -24,9 +24,6 @@ contract NarrativeController is IERC1155Receiver, Ownable2Step {
     ///@notice option token contract (ERC1155)
     Option public immutable OPTION;
 
-    ///@notice uniswapV4 pool manager
-    IPoolManager public immutable POOL_MANAGER;
-
     ///@notice uniswapV4 pool key
     PoolKey public POOL_KEY;
 
@@ -43,17 +40,11 @@ contract NarrativeController is IERC1155Receiver, Ownable2Step {
 
     event BuyBackHookControllSet(bool indexed val);
 
-    constructor(
-        address owner,
-        IERC20 token,
-        Option option,
-        IPoolManager poolManager,
-        PoolKey memory poolKey,
-        PoolSwapTest swapRouter
-    ) Ownable(owner) {
+    constructor(address owner, IERC20 token, Option option, PoolKey memory poolKey, PoolSwapTest swapRouter)
+        Ownable(owner)
+    {
         TOKEN = token;
         OPTION = option;
-        POOL_MANAGER = poolManager;
         POOL_KEY = poolKey;
         SWAP_ROUTER = swapRouter;
     }
@@ -104,7 +95,7 @@ contract NarrativeController is IERC1155Receiver, Ownable2Step {
     }
 
     // ================= internal function ==============
-  
+
     /**
      * @dev it swap exact amount of ETH into $TOKEN
      * @param amount the amount of tokens to swap. Negative is an exact-input swap
