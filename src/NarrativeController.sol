@@ -4,7 +4,11 @@ pragma solidity 0.8.25;
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts/token/ERC1155/IERC1155Receiver.sol";
 import "openzeppelin-contracts/contracts/access/Ownable2Step.sol";
+
 import "@uniswap/v4-core/src/libraries/TickMath.sol";
+import {PoolKey} from "v4-core/types/PoolKey.sol";
+import {IPoolManager} from "v4-core/interfaces/IPoolManager.sol";
+import {PoolSwapTest} from "v4-core/test/PoolSwapTest.sol"; // not for production
 
 import "./libraries/TickPriceLib.sol";
 import "./Option.sol";
@@ -20,6 +24,15 @@ contract NarrativeController is IERC1155Receiver, Ownable2Step {
     ///@notice option token contract (ERC1155)
     Option public immutable OPTION;
 
+    ///@notice uniswapV4 pool manager
+    IPoolManager public immutable POOL_MANAGER;
+
+    ///@notice uniswapV4 pool key
+    PoolKey public POOL_KEY;
+
+    ///@notice uniswapV4 swap router
+    PoolSwapTest public SWAP_ROUTER;
+
     ///@notice true: buy back hook is on. false: buy back hook is off
     bool public buyBackHookControl;
 
@@ -30,9 +43,19 @@ contract NarrativeController is IERC1155Receiver, Ownable2Step {
 
     event BuyBackHookControllSet(bool indexed val);
 
-    constructor(address owner, address token, address option) Ownable(owner) {
-        TOKEN = IERC20(token);
-        OPTION = Option(option);
+    constructor(
+        address owner,
+        IERC20 token,
+        Option option,
+        IPoolManager poolManager,
+        PoolKey memory poolKey,
+        PoolSwapTest swapRouter
+    ) Ownable(owner) {
+        TOKEN = token;
+        OPTION = option;
+        POOL_MANAGER = poolManager;
+        POOL_KEY = poolKey;
+        SWAP_ROUTER = swapRouter;
     }
 
     function exerciseOptionByTokenId(uint256 tokenId, uint256 amount) public payable {
@@ -66,7 +89,7 @@ contract NarrativeController is IERC1155Receiver, Ownable2Step {
         OPTION.safeTransferFrom(msg.sender, address(this), tokenId, amount, "");
         TOKEN.safeTransfer(msg.sender, amount);
 
-        _buyBackHook();
+        _buyBackHook(ethAmountToPay);
     }
 
     function exerciseOptionByPrices(address strikePrice, address expiryPrice, uint256 amount) public payable {
@@ -81,9 +104,25 @@ contract NarrativeController is IERC1155Receiver, Ownable2Step {
     }
 
     // ================= internal function ==============
-    function _buyBackHook() internal {
+  
+    /**
+     * @dev it swap exact amount of ETH into $TOKEN
+     * @param amount the amount of tokens to swap. Negative is an exact-input swap
+     */
+    function _buyBackHook(uint256 amount) internal {
         if (buyBackHookControl) {
-            // zap and seed liquidity
+            uint160 MIN_PRICE_LIMIT = TickMath.MIN_SQRT_PRICE + 1;
+            uint160 MAX_PRICE_LIMIT = TickMath.MAX_SQRT_PRICE - 1;
+            bool zeroForOne = address(WETH) < address(TOKEN) ? true : false;
+            IPoolManager.SwapParams memory swapParams = IPoolManager.SwapParams({
+                zeroForOne: zeroForOne,
+                amountSpecified: -int256(amount),
+                sqrtPriceLimitX96: zeroForOne ? MIN_PRICE_LIMIT : MAX_PRICE_LIMIT // unlimited impact
+            });
+            PoolSwapTest.TestSettings memory testSettings =
+                PoolSwapTest.TestSettings({takeClaims: false, settleUsingBurn: false});
+
+            SWAP_ROUTER.swap(POOL_KEY, swapParams, testSettings, "");
         }
     }
 
