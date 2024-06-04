@@ -105,8 +105,15 @@ contract VolumeTrackerHook is BaseHook, Access, Option {
 
         uint256 positionId = uint256(keccak256(abi.encode(key.toId())));
 
-        afterSwapCount[user] += swapAmount;
-        _mint(user, positionId, swapAmount / ratio, "");
+        // afterSwapCount[user] += swapAmount;
+
+        //if()
+
+        uint256 strikePrice = (twapPrice.price * 12) / 10;
+
+        uint256 expiryPrice = (twapPrice.price / strikePrice) * twapPrice.price;
+
+        _mintOption(user, swapAmount / ratio, strikePrice, expiryPrice);
 
         return (this.afterSwap.selector, 0);
     }
