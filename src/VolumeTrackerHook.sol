@@ -26,7 +26,7 @@ contract VolumeTrackerHook is BaseHook, Access, Option {
     // a single hook contract should be able to service multiple pools
     // ---------------------------------------------------------------
     uint256 public ratio;
-    address public guh;
+    address public okb;
 
     mapping(address user => uint256 swapAmount) public afterSwapCount;
 
@@ -35,12 +35,12 @@ contract VolumeTrackerHook is BaseHook, Access, Option {
         string memory _uri,
         uint256 _ratio,
         uint256 _initialTwapPrice,
-        address _guh,
+        address _okb,
         address _admin,
         address _keeper
     ) BaseHook(_poolManager) Access(_admin, _keeper) Option(_uri, _initialTwapPrice) {
         ratio = _ratio;
-        guh = _guh;
+        okb = _okb;
     }
 
     function getHookPermissions() public pure override returns (Hooks.Permissions memory) {
@@ -73,23 +73,23 @@ contract VolumeTrackerHook is BaseHook, Access, Option {
         BalanceDelta delta,
         bytes calldata
     ) external override returns (bytes4, int128) {
-        if(Currency.wrap(address(0)) < Currency.wrap(guh)){
-            // If this is not an ETH-GUH pool with this hook attached, ignore
+        if(Currency.wrap(address(0)) < Currency.wrap(okb)){
+            // If this is not an ETH-OKB pool with this hook attached, ignore
             if (!key.currency0.isNative()) return (this.afterSwap.selector, 0);
 
-            // If this is not an ETH-GUH pool with this hook attached, ignore
-            if (Currency.unwrap(key.currency1) != guh) return (this.afterSwap.selector, 0);
+            // If this is not an ETH-OKB pool with this hook attached, ignore
+            if (Currency.unwrap(key.currency1) != okb) return (this.afterSwap.selector, 0);
 
-            // We only consider swaps in one direction (in our case when user buys GUH)
+            // We only consider swaps in one direction (in our case when user buys OKB)
             if (!swapParams.zeroForOne) return (this.afterSwap.selector, 0);
         } else {
-            // If this is not an GUH-ETH pool with this hook attached, ignore
+            // If this is not an OKB-ETH pool with this hook attached, ignore
             if (!key.currency1.isNative()) return (this.afterSwap.selector, 0);
 
-            // If this is not an GUH-ETH pool with this hook attached, ignore
-            if (Currency.unwrap(key.currency0) != guh) return (this.afterSwap.selector, 0);
+            // If this is not an OKB-ETH pool with this hook attached, ignore
+            if (Currency.unwrap(key.currency0) != okb) return (this.afterSwap.selector, 0);
 
-            // We only consider swaps in one direction (in our case when user buys GUH)
+            // We only consider swaps in one direction (in our case when user buys OKB)
             if (swapParams.zeroForOne) return (this.afterSwap.selector, 0);            
         }
 
