@@ -77,7 +77,7 @@ contract NarrativeController is IERC1155Receiver, Ownable2Step {
         // calculate how much user should pay
         (,, uint256 strikePrice,) = OPTION.tokenId2Option(tokenId);
         uint256 ethAmountToPay =
-            TickPriceLib.getQuoteAtSqrtPrice(uint160(strikePrice), uint128(amount), ETH, address(TOKEN));
+            TickPriceLib.getQuoteAtSqrtPrice(uint160(strikePrice), uint128(amount), address(TOKEN), ETH);
         if (msg.value < ethAmountToPay) {
             revert InsufficientETHBalance();
         }
