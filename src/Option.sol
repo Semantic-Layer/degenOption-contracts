@@ -56,9 +56,6 @@ abstract contract Option is ERC1155, ERC1155Supply, ERC1155Burnable, Access {
     mapping(bytes32 option => uint256 tokenId) public option2TokenId;
 
     /// ======== errors and events =======
-    error NotHook();
-    error InvalidInterval();
-
     event TWAPPriceUpdated(uint256 newPrice, uint256 updateTime);
 
     constructor(string memory uri_) ERC1155(uri_) {
