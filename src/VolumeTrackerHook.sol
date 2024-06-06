@@ -130,25 +130,25 @@ contract VolumeTrackerHook is BaseHook, Access, Option {
     }
 
     function updateRatio(uint256 newRatio) public onlyRole(DEFAULT_ADMIN_ROLE) {
-        require(newRatio > 0);
+        require(newRatio > 0, "newRatio ratio not valid");
 
         ratio = newRatio;
     }
 
     function updateThreshold(uint256 newThreshold) public onlyRole(DEFAULT_ADMIN_ROLE) {
-        require(newThreshold > 0);
+        require(newThreshold > 0, "newThreshold value not valid");
 
         threshold = newThreshold;
     }
 
     function updateMin(uint256 newMin) public onlyRole(DEFAULT_ADMIN_ROLE) {
-        require(newMin != 0);
+        require(newMin >= 12 && newMin < max, "newMin value not valid");
 
         min = newMin;
     }
 
     function updateMax(uint256 newMax) public onlyRole(DEFAULT_ADMIN_ROLE) {
-        require(newMax != 0);
+        require(newMax <= 32 && newMax > min);
 
         max = newMax;
     }
