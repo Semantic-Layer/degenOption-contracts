@@ -192,7 +192,6 @@ abstract contract Option is ERC1155, ERC1155Supply, ERC1155Burnable, Access {
 
     // ==================== private functions ====================
     /**
-     * @dev override it in the hook contract
      * @param expiryPrice_ we void options with this expiry price
      */
     function _voidOptionByExpiryPrice(uint256 expiryPrice_) internal {
@@ -216,7 +215,6 @@ abstract contract Option is ERC1155, ERC1155Supply, ERC1155Burnable, Access {
     }
 
     /**
-     * @dev override it in the hook contract
      * @param tokenId option token to void
      */
     function _voidOptionByTokenId(uint256 tokenId) internal {
