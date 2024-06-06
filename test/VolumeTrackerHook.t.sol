@@ -103,6 +103,9 @@ contract TestVolumeTrackerHook is Test, Deployers {
         );
 
         console.log(IPoolManager(address(manager)).getLiquidity(key.toId()));
+
+        bytes memory hookData = abi.encode(address(user));
+
         /*
         uint256 pointsBalanceAfterAddLiquidity = hook.balanceOf(address(this));
 
@@ -133,7 +136,7 @@ contract TestVolumeTrackerHook is Test, Deployers {
                 sqrtPriceLimitX96: TickMath.MIN_SQRT_PRICE + 1
             }),
             PoolSwapTest.TestSettings({takeClaims: true, settleUsingBurn: false}),
-            ZERO_BYTES
+            hookData
         );
         /*
         uint256 pointsBalanceAfterSwap = hook.balanceOf(address(this));
