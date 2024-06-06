@@ -21,6 +21,7 @@ abstract contract Option is ERC1155, ERC1155Supply, ERC1155Burnable, Access {
     // a new tokenId will be used for the option if the previous option token has been voided
     /// call `isOptionTokenValid()` function to check if the current option token is valid
     struct OptionToken {
+        bool void;
         uint256 tokenId;
         uint256 strikePrice;
         uint256 expiryPrice;
@@ -48,7 +49,7 @@ abstract contract Option is ERC1155, ERC1155Supply, ERC1155Burnable, Access {
 
     ///@notice return the valid option token ids of the expiry price
     ///@dev use EnumerableSet instead of array as we need to check if the token id is valid upton minting new option tokens
-    mapping(uint256 expiryPrice => EnumerableSet.UintSet tokenIds) private expiryPrice2TokenIds;
+    mapping(uint256 expiryPrice => EnumerableSet.UintSet tokenIds) internal expiryPrice2TokenIds;
 
     ///@notice get the current valid token Id with option strike price and expiry price
     ///@dev key is keccake256(abi.encode(strikePrice, expiryPrice))
@@ -60,8 +61,12 @@ abstract contract Option is ERC1155, ERC1155Supply, ERC1155Burnable, Access {
 
     event TWAPPriceUpdated(uint256 newPrice, uint256 updateTime);
 
-    constructor(string memory uri_, uint256 initialPrice_) ERC1155(uri_) {
-        _updateTWAPPrice(initialPrice_);
+    constructor(string memory uri_) ERC1155(uri_) {
+        latestTwapPrice = TwapPrice({
+            price: 0, // setting 0 at the begining so no option will be voided
+            intervalCount: block.timestamp / TWAP_INTERVAL, // the Xth interval times
+            timestamp: block.timestamp
+        });
     }
 
     /**
@@ -79,7 +84,6 @@ abstract contract Option is ERC1155, ERC1155Supply, ERC1155Burnable, Access {
 
         if (isValid) {
             // a valid option token already exists
-
             _mint(user, id, amount, "");
         } else {
             // use a new token id the option with the same strike price and expiry price
@@ -90,7 +94,7 @@ abstract contract Option is ERC1155, ERC1155Supply, ERC1155Burnable, Access {
 
             // update option info for this new option token
             tokenId2Option[newTokenId] =
-                OptionToken({tokenId: newTokenId, strikePrice: strikePrice, expiryPrice: expiryPrice});
+                OptionToken({void: false, tokenId: newTokenId, strikePrice: strikePrice, expiryPrice: expiryPrice});
 
             // add this new tokenId into expiryPrice2TokenIds
             expiryPrice2TokenIds[expiryPrice].add(nextTokenId);
@@ -100,37 +104,27 @@ abstract contract Option is ERC1155, ERC1155Supply, ERC1155Burnable, Access {
         }
     }
 
-    /**
-     * @notice keeper call this function to update twap price every interval time
-     * @dev only be called once every `TWAP_INTERVAL` time.
-     * @param price twap price to update
-     */
-    function _updateTWAPPrice(uint256 price) internal {
-        if (block.timestamp <= latestTwapPrice.timestamp + TWAP_INTERVAL) {
-            revert InvalidInterval();
-        }
-        uint256 time = block.timestamp / TWAP_INTERVAL;
-        latestTwapPrice = TwapPrice({
-            price: price,
-            intervalCount: time, // the Xth interval times
-            timestamp: block.timestamp
-        });
-        emit TWAPPriceUpdated(price, time);
-    }
-
     // =========== keeper functions ==============
 
     /**
-     * @notice keeper call this function to void options that met the expiry price condition
-     * @dev It can be called between updates of the twap price. As long as the twap price is not update. keeper can call this function
-     *      There options to void might exceed the limits we can call in one tx. So we design this with the time flexibity.
-     * @param twapPrice_ twap price
+     * @notice call this function to void options that met the expiry price condition
      * @param expiryPrices_  we void options with these expiry prices
      */
-    function voidOptions(uint256 twapPrice_, uint256[] calldata expiryPrices_) public onlyRole(KEEPER_ROLE) {
+    function voidOptionsByExpiryPrices(uint256[] calldata expiryPrices_) public {
         uint256 length = expiryPrices_.length;
         for (uint256 i = 0; i < length; i++) {
-            _voidOption(twapPrice_, expiryPrices_[i]);
+            _voidOptionByExpiryPrice(expiryPrices_[i]);
+        }
+    }
+
+    /**
+     * @notice call this function to void options that met the expiry price condition
+     * @param tokenIds option ids to void
+     */
+    function voidOptionsByTokenIds(uint256[] calldata tokenIds) public {
+        uint256 length = tokenIds.length;
+        for (uint256 i = 0; i < length; i++) {
+            _voidOptionByTokenId(tokenIds[i]);
         }
     }
 
@@ -169,7 +163,7 @@ abstract contract Option is ERC1155, ERC1155Supply, ERC1155Burnable, Access {
         if (expiryPrice == 0) {
             return false;
         }
-        return expiryPrice2TokenIds[expiryPrice].contains(tokenId_);
+        return !tokenId2Option[tokenId_].void;
     }
 
     /**
@@ -201,12 +195,12 @@ abstract contract Option is ERC1155, ERC1155Supply, ERC1155Burnable, Access {
 
     // ==================== private functions ====================
     /**
-     * @dev it deletes all the tokens under expiryPrice2TokenIds[expiryPrice_] if the expiryPrice_ <= twapPrice_
-     * @param twapPrice_ twap price
+     * @dev override it in the hook contract
      * @param expiryPrice_ we void options with this expiry price
      */
-    function _voidOption(uint256 twapPrice_, uint256 expiryPrice_) private {
-        if (twapPrice_ <= expiryPrice_) {
+    function _voidOptionByExpiryPrice(uint256 expiryPrice_) internal {
+        uint256 price = latestTwapPrice.price;
+        if (price <= expiryPrice_) {
             // Get the set of token IDs associated with the expiry price
             EnumerableSet.UintSet storage tokenIds = expiryPrice2TokenIds[expiryPrice_];
 
@@ -214,12 +208,43 @@ abstract contract Option is ERC1155, ERC1155Supply, ERC1155Burnable, Access {
             while (tokenIds.length() > 0) {
                 uint256 tokenId = tokenIds.at(0);
                 tokenIds.remove(tokenId);
+                tokenId2Option[tokenId].void = true;
             }
 
             // Optionally, delete the entry from the mapping if the set is empty
             // This is optional since the set will be empty and won't consume much gas, but
             // it might be useful to remove the mapping entry entirely
             delete expiryPrice2TokenIds[expiryPrice_];
+        }
+    }
+
+    /**
+     * @dev override it in the hook contract
+     * @param tokenId option token to void
+     */
+    function _voidOptionByTokenId(uint256 tokenId) internal {
+        uint256 price = latestTwapPrice.price;
+        uint256 expiryPrice = tokenId2Option[tokenId].expiryPrice;
+        if (price <= expiryPrice) {
+            EnumerableSet.UintSet storage tokenIds = expiryPrice2TokenIds[expiryPrice];
+            tokenIds.remove(tokenId);
+            tokenId2Option[tokenId].void = true;
+        }
+    }
+
+    /**
+     * @dev it updates `twapPrice` and emit event
+     * @param price twap price to update
+     */
+    function _updateTWAPPrice(uint256 price) internal {
+        if (block.timestamp >= latestTwapPrice.timestamp + TWAP_INTERVAL) {
+            uint256 time = block.timestamp / TWAP_INTERVAL;
+            latestTwapPrice = TwapPrice({
+                price: price,
+                intervalCount: time, // the Xth interval times
+                timestamp: block.timestamp
+            });
+            emit TWAPPriceUpdated(price, time);
         }
     }
 

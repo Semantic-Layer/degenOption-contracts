@@ -45,7 +45,7 @@ contract TestVolumeTrackerHook is Test, Deployers {
         (address hookAddress, bytes32 salt) = HookMiner.find(
             address(this), flags, type(VolumeTrackerHook).creationCode, abi.encode(address(manager), "", dev, 1)
         );
-        hook = new VolumeTrackerHook{salt: salt}(IPoolManager(address(manager)), "", 1, 0, dev, keeper);
+        hook = new VolumeTrackerHook{salt: salt}(IPoolManager(address(manager)), "", 1, dev, keeper);
         require(address(hook) == hookAddress, "VolumeTrackerHookTest: hook address mismatch");
 
         // Create the pool
