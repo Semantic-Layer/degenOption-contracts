@@ -16,7 +16,7 @@ import "./Option.sol";
 contract NarrativeController is IERC1155Receiver, Ownable2Step {
     using SafeERC20 for IERC20;
 
-    IERC20 public constant WETH = IERC20(0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2);
+    IERC20 public constant ETH = IERC20(address(0));
 
     ///@notice the token user can buy with option tokens. e.g. protocol governance token
     IERC20 public immutable TOKEN;
@@ -76,7 +76,7 @@ contract NarrativeController is IERC1155Receiver, Ownable2Step {
         // calculate how much user should pay
         (, uint256 strikePrice,) = OPTION.tokenId2Option(tokenId);
         uint256 ethAmountToPay =
-            TickPriceLib.getQuoteAtSqrtPrice(uint160(strikePrice), uint128(amount), address(WETH), address(TOKEN));
+            TickPriceLib.getQuoteAtSqrtPrice(uint160(strikePrice), uint128(amount), address(ETH), address(TOKEN));
         if (msg.value < ethAmountToPay) {
             revert InsufficientETHBalance();
         }
@@ -99,7 +99,7 @@ contract NarrativeController is IERC1155Receiver, Ownable2Step {
         if (buyBackHookControl) {
             uint160 MIN_PRICE_LIMIT = TickMath.MIN_SQRT_PRICE + 1;
             uint160 MAX_PRICE_LIMIT = TickMath.MAX_SQRT_PRICE - 1;
-            bool zeroForOne = address(WETH) < address(TOKEN) ? true : false;
+            bool zeroForOne = address(ETH) < address(TOKEN) ? true : false;
             IPoolManager.SwapParams memory swapParams = IPoolManager.SwapParams({
                 zeroForOne: zeroForOne,
                 amountSpecified: -int256(amount),
