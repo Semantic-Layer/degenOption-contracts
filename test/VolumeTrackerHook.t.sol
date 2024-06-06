@@ -2,6 +2,7 @@
 pragma solidity ^0.8.0;
 
 import {Test} from "forge-std/Test.sol";
+import "forge-std/console.sol";
 
 import {Deployers} from "@uniswap/v4-core/test/utils/Deployers.sol";
 import {PoolSwapTest} from "v4-core/test/PoolSwapTest.sol";
@@ -15,6 +16,7 @@ import {PoolId, PoolIdLibrary} from "v4-core/types/PoolId.sol";
 import {PoolKey} from "v4-core/types/PoolKey.sol";
 import {IHooks} from "v4-core/interfaces/IHooks.sol";
 import {BalanceDelta} from "v4-core/types/BalanceDelta.sol";
+import {StateLibrary} from "v4-core/libraries/StateLibrary.sol";
 
 import {Hooks} from "v4-core/libraries/Hooks.sol";
 import {TickMath} from "v4-core/libraries/TickMath.sol";
@@ -25,32 +27,51 @@ import {HookMiner} from "./utils/HookMiner.sol";
 contract TestVolumeTrackerHook is Test, Deployers {
     using PoolIdLibrary for PoolKey;
     using CurrencyLibrary for Currency;
+    using StateLibrary for IPoolManager;
 
-    PoolId poolId;
+    MockERC20 token;
     VolumeTrackerHook hook;
+
+    Currency ethCurrency = Currency.wrap(address(0));
+    Currency tokenCurrency;
 
     uint256 internal devPrivatekey = 0xde111;
     uint256 internal keeperPrivateKey = 0x3333;
+    uint256 internal okbPrivateKey = 0x1111;
+    uint256 internal userPrivateKey = 0xad111;
 
+    address internal user = vm.addr(userPrivateKey);
     address internal dev = vm.addr(devPrivatekey);
     address internal keeper = vm.addr(keeperPrivateKey);
+    address internal okb = vm.addr(okbPrivateKey);
 
     function setUp() public {
         // creates the pool manager, utility routers, and test tokens
         Deployers.deployFreshManagerAndRouters();
-        Deployers.deployMintAndApprove2Currencies();
+
+        // Deploy our OKB token contract
+        token = new MockERC20("OKB Token", "OKB", 18);
+        tokenCurrency = Currency.wrap(address(token));
+
+        // Mint a bunch of TOKEN to ourselves and to address(user)
+        token.mint(address(this), 1000 ether);
+        token.mint(address(user), 1000 ether);
 
         // Deploy the hook to an address with the correct flags
         uint160 flags = uint160(Hooks.AFTER_SWAP_FLAG);
         (address hookAddress, bytes32 salt) = HookMiner.find(
-            address(this), flags, type(VolumeTrackerHook).creationCode, abi.encode(address(manager), "", dev, 1)
+            address(this), flags, type(VolumeTrackerHook).creationCode, abi.encode(address(manager), "", 1, address(token), dev, keeper)
         );
-        hook = new VolumeTrackerHook{salt: salt}(IPoolManager(address(manager)), "", 1, dev, keeper);
+        hook = new VolumeTrackerHook{salt: salt}(IPoolManager(address(manager)), "", 1, address(token), dev, keeper);
         require(address(hook) == hookAddress, "VolumeTrackerHookTest: hook address mismatch");
 
+        // Approve our TOKEN for spending on the swap router and modify liquidity router
+        // These variables are coming from the `Deployers` contract
+        token.approve(address(swapRouter), type(uint256).max);
+        token.approve(address(modifyLiquidityRouter), type(uint256).max);
+
         // Create the pool
-        key = PoolKey(currency0, currency1, 3000, 60, IHooks(address(hook)));
-        poolId = key.toId();
+        key = PoolKey(ethCurrency, tokenCurrency, 3000, 60, IHooks(address(hook)));
         manager.initialize(key, SQRT_PRICE_1_1, ZERO_BYTES);
 
         // Provide liquidity to the pool
@@ -73,11 +94,15 @@ contract TestVolumeTrackerHook is Test, Deployers {
         // This is done by computing x and y from the equation shown in Ticks and Q64.96 Numbers lesson
         // View the full code for this lesson on GitHub which has additional comments
         // showing the exact computation and a Python script to do that calculation for you
+        console.log(IPoolManager(address(manager)).getLiquidity(key.toId()));
+
         modifyLiquidityRouter.modifyLiquidity{value: 0.003 ether}(
             key,
             IPoolManager.ModifyLiquidityParams({tickLower: -60, tickUpper: 60, liquidityDelta: 1 ether, salt: 0}),
             ZERO_BYTES
         );
+
+        console.log(IPoolManager(address(manager)).getLiquidity(key.toId()));
         /*
         uint256 pointsBalanceAfterAddLiquidity = hook.balanceOf(address(this));
 
@@ -99,6 +124,7 @@ contract TestVolumeTrackerHook is Test, Deployers {
         // We will swap 0.001 ether for tokens
         // We should get 20% of 0.001 * 10**18 points
         // = 2 * 10**14
+        
         swapRouter.swap{value: 0.001 ether}(
             key,
             IPoolManager.SwapParams({
