@@ -100,19 +100,25 @@ abstract contract Option is ERC1155, ERC1155Supply, ERC1155Burnable, Access {
         }
     }
 
-    // =========== keeper functions ==============
-
     /**
      * @notice keeper call this function to update twap price every interval time
      * @dev only be called once every `TWAP_INTERVAL` time.
      * @param price twap price to update
      */
-    function updateTWAPPrice(uint256 price) public onlyRole(KEEPER_ROLE) {
+    function _updateTWAPPrice(uint256 price) internal {
         if (block.timestamp <= latestTwapPrice.timestamp + TWAP_INTERVAL) {
             revert InvalidInterval();
         }
-        _updateTWAPPrice(price);
+        uint256 time = block.timestamp / TWAP_INTERVAL;
+        latestTwapPrice = TwapPrice({
+            price: price,
+            intervalCount: time, // the Xth interval times
+            timestamp: block.timestamp
+        });
+        emit TWAPPriceUpdated(price, time);
     }
+
+    // =========== keeper functions ==============
 
     /**
      * @notice keeper call this function to void options that met the expiry price condition
@@ -215,20 +221,6 @@ abstract contract Option is ERC1155, ERC1155Supply, ERC1155Burnable, Access {
             // it might be useful to remove the mapping entry entirely
             delete expiryPrice2TokenIds[expiryPrice_];
         }
-    }
-
-    /**
-     * @dev it updates `twapPrice` and emit event
-     * @param price twap price to update
-     */
-    function _updateTWAPPrice(uint256 price) private {
-        uint256 time = block.timestamp / TWAP_INTERVAL;
-        latestTwapPrice = TwapPrice({
-            price: price,
-            intervalCount: time, // the Xth interval times
-            timestamp: block.timestamp
-        });
-        emit TWAPPriceUpdated(price, time);
     }
 
     // =========== funcitons required to override ======================
