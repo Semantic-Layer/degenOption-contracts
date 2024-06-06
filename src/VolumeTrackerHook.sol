@@ -148,7 +148,7 @@ contract VolumeTrackerHook is BaseHook, Access, Option {
     }
 
     function updateMax(uint256 newMax) public onlyRole(DEFAULT_ADMIN_ROLE) {
-        require(newMax <= 32 && newMax > min);
+        require(newMax <= 32 && newMax > min, "newMax value not valid");
 
         max = newMax;
     }
