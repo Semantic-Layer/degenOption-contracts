@@ -6,12 +6,14 @@ import {BaseHook} from "v4-periphery/BaseHook.sol";
 import {CurrencyLibrary, Currency} from "v4-core/types/Currency.sol";
 import {PoolKey} from "v4-core/types/PoolKey.sol";
 import {PoolId, PoolIdLibrary} from "v4-core/types/PoolId.sol";
+import {TickMath} from "v4-core/libraries/TickMath.sol";
 import {BalanceDeltaLibrary, BalanceDelta} from "v4-core/types/BalanceDelta.sol";
 import {BeforeSwapDelta, BeforeSwapDeltaLibrary} from "v4-core/types/BeforeSwapDelta.sol";
 import {ERC1155} from "@openzeppelin/contracts/token/ERC1155/ERC1155.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 import {IPoolManager} from "v4-core/interfaces/IPoolManager.sol";
+import {StateLibrary} from "v4-core/libraries/StateLibrary.sol";
 
 import {Hooks} from "v4-core/libraries/Hooks.sol";
 
@@ -21,6 +23,7 @@ import "./Option.sol";
 contract VolumeTrackerHook is BaseHook, Access, Option {
     using PoolIdLibrary for PoolKey;
     using CurrencyLibrary for Currency;
+    using StateLibrary for IPoolManager;
 
     // NOTE: ---------------------------------------------------------
     // state variables should typically be unique to a pool
@@ -102,10 +105,15 @@ contract VolumeTrackerHook is BaseHook, Access, Option {
         uint256 swapAmount =
             swapParams.amountSpecified < 0 ? uint256(-swapParams.amountSpecified) : uint256(int256(-delta.amount0()));
 
-        uint256 positionId = uint256(keccak256(abi.encode(key.toId())));
+        // get the current tick
+        (, int24 tick,,) = poolManager.getSlot0(key.toId());
+        
+        // get the spot price as sqrt price
+        uint256 spotPrice = TickMath.getSqrtPriceAtTick(tick);
 
-        // I'm not really sure if this is the way that we would like to measure the liquidity
-        uint256 liquidity = address(this).balance + IERC20(okb).balanceOf(address(this));
+        // get current liquidity
+        uint256 liquidity = poolManager.getLiquidity(key.toId());
+
         uint256 strikePrice;
 
         // Considering the two-point form equation of the straight line  y - y1 = (y2 - y1)/(x2 - x1)(x - x1)
@@ -114,17 +122,17 @@ contract VolumeTrackerHook is BaseHook, Access, Option {
         // Substituting in the formula, we have y = min * price + (max * price) / threshold * (threshold - x)
         if(liquidity > threshold){
             // This is the constant line of the piecewise function 
-            strikePrice = (twapPrice.price * min) / 10;
+            strikePrice = (spotPrice * min) / 10;
         } else {
             // This is the the decreasing straight line of the piecewise function that is obtained from the
             // formula described above
-            strikePrice = (twapPrice.price * min) / 10 + 
-            ((max - min) * twapPrice.price / (10 * threshold)) * (threshold - liquidity);
+            strikePrice = (spotPrice * min) / 10 + 
+            ((max - min) * spotPrice / (10 * threshold)) * (threshold - liquidity);
         }
 
         // Considering that expiryPrice = spotPrice/ y 
         // -> expiryPrice = spotPrice/ (strikePrice/spotPrice) = spotPrice*spotPrice/strikePrice
-        uint256 expiryPrice = (twapPrice.price / strikePrice) * twapPrice.price;
+        uint256 expiryPrice = (spotPrice / strikePrice) * spotPrice;
 
         _mintOption(user, swapAmount / ratio, strikePrice, expiryPrice);
 
