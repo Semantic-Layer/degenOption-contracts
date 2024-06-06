@@ -225,6 +225,7 @@ abstract contract Option is ERC1155, ERC1155Supply, ERC1155Burnable, Access {
     function _voidOptionByTokenId(uint256 tokenId) internal {
         uint256 price = latestTwapPrice.price;
         uint256 expiryPrice = tokenId2Option[tokenId].expiryPrice;
+        if (tokenId2Option[tokenId].void) return; // do nothing if it's already voided.
         if (price <= expiryPrice) {
             EnumerableSet.UintSet storage tokenIds = expiryPrice2TokenIds[expiryPrice];
             tokenIds.remove(tokenId);
