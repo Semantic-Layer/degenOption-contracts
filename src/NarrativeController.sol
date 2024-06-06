@@ -37,6 +37,7 @@ contract NarrativeController is IERC1155Receiver, Ownable2Step {
     error InValidOptionTokenId();
     error InsufficientOptionTokenBalance();
     error InsufficientETHBalance();
+    error ETHTransferFail();
 
     event BuyBackHookControllSet(bool indexed val);
     event OptionExercised(address indexed user, uint256 indexed id, uint256 indexed amount);
@@ -75,9 +76,9 @@ contract NarrativeController is IERC1155Receiver, Ownable2Step {
         }
 
         // calculate how much user should pay
-        (, uint256 strikePrice,) = OPTION.tokenId2Option(tokenId);
+        (,, uint256 strikePrice,) = OPTION.tokenId2Option(tokenId);
         uint256 ethAmountToPay =
-            TickPriceLib.getQuoteAtSqrtPrice(uint160(strikePrice), uint128(amount), ETH, address(TOKEN));
+            TickPriceLib.getQuoteAtSqrtPrice(uint160(strikePrice), uint128(amount), address(TOKEN), ETH);
         if (msg.value < ethAmountToPay) {
             revert InsufficientETHBalance();
         }
@@ -90,6 +91,22 @@ contract NarrativeController is IERC1155Receiver, Ownable2Step {
         _buyBackHook(ethAmountToPay);
 
         emit OptionExercised(msg.sender, tokenId, amount);
+    }
+
+    /**
+     * @notice allow admin to rescue token from the contract
+     * @param token erc20 token address
+     * @param amount amount of token to rescue
+     */
+    function rescueTokens(address token, uint256 amount) public onlyOwner {
+        if (token == ETH) {
+            (bool success,) = msg.sender.call{value: amount}("");
+            if (!success) {
+                revert ETHTransferFail();
+            }
+        } else {
+            IERC20(token).safeTransfer(msg.sender, amount);
+        }
     }
 
     // ================= internal function ==============
