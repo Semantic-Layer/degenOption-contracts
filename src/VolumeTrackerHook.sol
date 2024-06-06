@@ -9,6 +9,7 @@ import {PoolId, PoolIdLibrary} from "v4-core/types/PoolId.sol";
 import {BalanceDeltaLibrary, BalanceDelta} from "v4-core/types/BalanceDelta.sol";
 import {BeforeSwapDelta, BeforeSwapDeltaLibrary} from "v4-core/types/BeforeSwapDelta.sol";
 import {ERC1155} from "@openzeppelin/contracts/token/ERC1155/ERC1155.sol";
+import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 import {IPoolManager} from "v4-core/interfaces/IPoolManager.sol";
 
@@ -103,7 +104,8 @@ contract VolumeTrackerHook is BaseHook, Access, Option {
 
         uint256 positionId = uint256(keccak256(abi.encode(key.toId())));
 
-        uint256 liquidity = 500000;
+        // I'm not really sure if this is the way that we would like to measure the liquidity
+        uint256 liquidity = address(this).balance + IERC20(okb).balanceOf(address(this));
         uint256 strikePrice;
 
         // Considering the two-point form equation of the straight line  y - y1 = (y2 - y1)/(x2 - x1)(x - x1)
