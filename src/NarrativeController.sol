@@ -39,6 +39,7 @@ contract NarrativeController is IERC1155Receiver, Ownable2Step {
     error InsufficientETHBalance();
 
     event BuyBackHookControllSet(bool indexed val);
+    event OptionExercised(address indexed user, uint256 indexed id, uint256 indexed amount);
 
     constructor(address owner, IERC20 token, Option option, PoolKey memory poolKey, PoolSwapTest swapRouter)
         Ownable(owner)
@@ -87,6 +88,8 @@ contract NarrativeController is IERC1155Receiver, Ownable2Step {
         // transfer token bought to user
         TOKEN.safeTransfer(msg.sender, amount);
         _buyBackHook(ethAmountToPay);
+
+        emit OptionExercised(msg.sender, tokenId, amount);
     }
 
     // ================= internal function ==============
@@ -113,21 +116,21 @@ contract NarrativeController is IERC1155Receiver, Ownable2Step {
     }
 
     // ===== required override =======
-    function onERC1155Received(address operator, address from, uint256 id, uint256 value, bytes calldata data)
+    function onERC1155Received(address, address, uint256, uint256, bytes calldata)
         external
+        pure
         override
         returns (bytes4)
     {
         return IERC1155Receiver.onERC1155Received.selector;
     }
 
-    function onERC1155BatchReceived(
-        address operator,
-        address from,
-        uint256[] calldata ids,
-        uint256[] calldata values,
-        bytes calldata data
-    ) external override returns (bytes4) {
+    function onERC1155BatchReceived(address, address, uint256[] calldata, uint256[] calldata, bytes calldata)
+        external
+        pure
+        override
+        returns (bytes4)
+    {
         return IERC1155Receiver.onERC1155BatchReceived.selector;
     }
 
