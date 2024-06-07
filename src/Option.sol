@@ -175,13 +175,13 @@ abstract contract Option is ERC1155, ERC1155Supply, ERC1155Burnable, Access {
      * @dev override it in the hook
      * @param expiryPrice_ we void options with this expiry price
      */
-    function _voidOptionByExpiryPrice(uint256 expiryPrice_) internal {}
+    function _voidOptionByExpiryPrice(uint256 expiryPrice_) internal virtual {}
 
     /**
      * @dev override it in the hook
      * @param tokenId option token to void
      */
-    function _voidOptionByTokenId(uint256 tokenId) internal {}
+    function _voidOptionByTokenId(uint256 tokenId) internal virtual {}
 
     // =========== funcitons required to override ======================
     function _update(address from_, address to_, uint256[] memory ids_, uint256[] memory values_)
