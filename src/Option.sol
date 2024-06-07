@@ -27,22 +27,9 @@ abstract contract Option is ERC1155, ERC1155Supply, ERC1155Burnable, Access {
         uint256 expiryPrice;
     }
 
-    ///@dev struct for twap price update related information
-    struct TwapPrice {
-        uint256 price; // twap price
-        uint256 intervalCount; // `block.timestamp/TWAP_INTERVAL`. the time when the twap price is updated. it's xth `TWAP_INTERVAL` interval time. not timestamp. it allows keeper to void options as long as it's within the same 30min gap
-        uint256 timestamp; // block.timestamp when the twap price is updated
-    }
-
-    ///@notice interval for updating twap price
-    uint256 public constant TWAP_INTERVAL = 30 minutes;
-
     ///@notice next tokenId to mint a new type of option token
     ///@dev a valid tokenId starting from 1
     uint256 public nextTokenId = 1; //
-
-    ///@notice latest twap price related information
-    TwapPrice public latestTwapPrice;
 
     ///@notice store the option info of a option token
     mapping(uint256 tokenId => OptionToken option) public tokenId2Option;
@@ -58,13 +45,7 @@ abstract contract Option is ERC1155, ERC1155Supply, ERC1155Burnable, Access {
     /// ======== errors and events =======
     event TWAPPriceUpdated(uint256 newPrice, uint256 updateTime);
 
-    constructor(string memory uri_) ERC1155(uri_) {
-        latestTwapPrice = TwapPrice({
-            price: 0, // setting 0 at the begining so no option will be voided
-            intervalCount: block.timestamp / TWAP_INTERVAL, // the Xth interval times
-            timestamp: block.timestamp
-        });
-    }
+    constructor(string memory uri_) ERC1155(uri_) {}
 
     /**
      * @notice hook call this function to mint option tokens for user
@@ -192,57 +173,16 @@ abstract contract Option is ERC1155, ERC1155Supply, ERC1155Burnable, Access {
 
     // ==================== private functions ====================
     /**
+     * @dev override it in the hook
      * @param expiryPrice_ we void options with this expiry price
      */
-    function _voidOptionByExpiryPrice(uint256 expiryPrice_) internal {
-        uint256 price = latestTwapPrice.price;
-        if (price <= expiryPrice_) {
-            // Get the set of token IDs associated with the expiry price
-            EnumerableSet.UintSet storage tokenIds = expiryPrice2TokenIds[expiryPrice_];
-
-            // Iterate over the set and remove each token ID
-            while (tokenIds.length() > 0) {
-                uint256 tokenId = tokenIds.at(0);
-                tokenIds.remove(tokenId);
-                tokenId2Option[tokenId].void = true;
-            }
-
-            // Optionally, delete the entry from the mapping if the set is empty
-            // This is optional since the set will be empty and won't consume much gas, but
-            // it might be useful to remove the mapping entry entirely
-            delete expiryPrice2TokenIds[expiryPrice_];
-        }
-    }
+    function _voidOptionByExpiryPrice(uint256 expiryPrice_) internal {}
 
     /**
+     * @dev override it in the hook
      * @param tokenId option token to void
      */
-    function _voidOptionByTokenId(uint256 tokenId) internal {
-        uint256 price = latestTwapPrice.price;
-        uint256 expiryPrice = tokenId2Option[tokenId].expiryPrice;
-        if (tokenId2Option[tokenId].void) return; // do nothing if it's already voided.
-        if (price <= expiryPrice) {
-            EnumerableSet.UintSet storage tokenIds = expiryPrice2TokenIds[expiryPrice];
-            tokenIds.remove(tokenId);
-            tokenId2Option[tokenId].void = true;
-        }
-    }
-
-    /**
-     * @dev it updates `twapPrice` and emit event
-     * @param price twap price to update
-     */
-    function _updateTWAPPrice(uint256 price) internal {
-        if (block.timestamp >= latestTwapPrice.timestamp + TWAP_INTERVAL) {
-            uint256 time = block.timestamp / TWAP_INTERVAL;
-            latestTwapPrice = TwapPrice({
-                price: price,
-                intervalCount: time, // the Xth interval times
-                timestamp: block.timestamp
-            });
-            emit TWAPPriceUpdated(price, time);
-        }
-    }
+    function _voidOptionByTokenId(uint256 tokenId) internal {}
 
     // =========== funcitons required to override ======================
     function _update(address from_, address to_, uint256[] memory ids_, uint256[] memory values_)

@@ -173,4 +173,49 @@ contract VolumeTrackerHook is BaseHook, Access, Option {
     function supportsInterface(bytes4 interfaceId) public view virtual override(AccessControl, Option) returns (bool) {
         return super.supportsInterface(interfaceId);
     }
+
+    /**
+     * @param tokenId option token to void
+     */
+    function _voidOptionByTokenId(uint256 tokenId) internal override{
+        // get the current tick
+        (, int24 tick,,) = poolManager.getSlot0(key.toId());
+
+        // get the spot price as sqrt price
+        uint256 spotPrice = TickMath.getSqrtPriceAtTick(tick);
+        uint256 expiryPrice = tokenId2Option[tokenId].expiryPrice;
+        if (tokenId2Option[tokenId].void) return; // do nothing if it's already voided.
+        if (spotPrice <= expiryPrice) {
+            EnumerableSet.UintSet storage tokenIds = expiryPrice2TokenIds[expiryPrice];
+            tokenIds.remove(tokenId);
+            tokenId2Option[tokenId].void = true;
+        }
+    }
+
+    /**
+     * @param expiryPrice_ we void options with this expiry price
+     */
+    function _voidOptionByExpiryPrice(uint256 expiryPrice_) internal override {
+        // get the current tick
+        (, int24 tick,,) = poolManager.getSlot0(key.toId());
+
+        // get the spot price as sqrt price
+        uint256 spotPrice = TickMath.getSqrtPriceAtTick(tick);
+        if (spotPrice <= expiryPrice_) {
+            // Get the set of token IDs associated with the expiry price
+            EnumerableSet.UintSet storage tokenIds = expiryPrice2TokenIds[expiryPrice_];
+
+            // Iterate over the set and remove each token ID
+            while (tokenIds.length() > 0) {
+                uint256 tokenId = tokenIds.at(0);
+                tokenIds.remove(tokenId);
+                tokenId2Option[tokenId].void = true;
+            }
+
+            // Optionally, delete the entry from the mapping if the set is empty
+            // This is optional since the set will be empty and won't consume much gas, but
+            // it might be useful to remove the mapping entry entirely
+            delete expiryPrice2TokenIds[expiryPrice_];
+        }
+    }
 }
