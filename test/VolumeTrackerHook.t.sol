@@ -60,7 +60,10 @@ contract TestVolumeTrackerHook is Test, Deployers {
         // Deploy the hook to an address with the correct flags
         uint160 flags = uint160(Hooks.AFTER_SWAP_FLAG);
         (address hookAddress, bytes32 salt) = HookMiner.find(
-            address(this), flags, type(VolumeTrackerHook).creationCode, abi.encode(address(manager), "", 1, address(token), dev, keeper)
+            address(this),
+            flags,
+            type(VolumeTrackerHook).creationCode,
+            abi.encode(address(manager), "", 1, address(token), dev, keeper)
         );
         hook = new VolumeTrackerHook{salt: salt}(IPoolManager(address(manager)), "", 1, address(token), dev, keeper);
         require(address(hook) == hookAddress, "VolumeTrackerHookTest: hook address mismatch");
@@ -127,7 +130,7 @@ contract TestVolumeTrackerHook is Test, Deployers {
         // We will swap 0.001 ether for tokens
         // We should get 20% of 0.001 * 10**18 points
         // = 2 * 10**14
-        
+
         swapRouter.swap{value: 0.001 ether}(
             key,
             IPoolManager.SwapParams({
