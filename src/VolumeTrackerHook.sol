@@ -16,6 +16,7 @@ import {IPoolManager} from "v4-core/interfaces/IPoolManager.sol";
 import {StateLibrary} from "v4-core/libraries/StateLibrary.sol";
 
 import {Hooks} from "v4-core/libraries/Hooks.sol";
+import {IHooks} from "v4-core/interfaces/IHooks.sol";
 
 import "./Access.sol";
 import "./Option.sol";
@@ -29,27 +30,27 @@ contract VolumeTrackerHook is BaseHook, Access, Option {
     // state variables should typically be unique to a pool
     // a single hook contract should be able to service multiple pools
     // ---------------------------------------------------------------
-    uint256 public constant DIVIDE_FACTOR = 1000;
     uint256 public factor;
     address public developer;
     uint256 public min = 12; // the minimum is 1.2
     uint256 public max = 32; // the maximim is 3.2
     // if the liquidity is greater than the threshold, the strike price corresponds to the min
-    uint256 public threshold = 100 ether;
+    uint256 public threshold = 100 ether; 
     address public immutable OK;
+
+    PoolId id;
 
     mapping(address user => uint256 swapAmount) public afterSwapCount;
 
-    constructor(
-        IPoolManager _poolManager,
-        string memory _uri,
-        uint256 _ratio,
-        address _okb,
-        address _admin,
-        address _keeper
-    ) BaseHook(_poolManager) Access(_admin, _keeper) Option(_uri) {
+    constructor(IPoolManager _poolManager, string memory _uri, uint256 _ratio, address _okb, 
+    address _admin, address _keeper)
+        BaseHook(_poolManager)
+        Access(_admin, _keeper)
+        Option(_uri)
+    {
         factor = _ratio;
         OK = _okb;
+        PoolId id = PoolKey(Currency.wrap(address(0)), Currency.wrap(address(_okb)), 3000, 60, IHooks(address(this))).toId();
     }
 
     function getHookPermissions() public pure override returns (Hooks.Permissions memory) {
@@ -82,10 +83,11 @@ contract VolumeTrackerHook is BaseHook, Access, Option {
         BalanceDelta delta,
         bytes calldata hookdata
     ) external override returns (bytes4, int128) {
+        
         // The address which should receive the option should be set as an input in hookdata
         address user = abi.decode(hookdata, (address));
 
-        if (Currency.wrap(address(0)) < Currency.wrap(OK)) {
+        if(Currency.wrap(address(0)) < Currency.wrap(OK)){
             // If this is not an ETH-OKB pool with this hook attached, ignore
             if (!key.currency0.isNative() && Currency.unwrap(key.currency1) != OK) return (this.afterSwap.selector, 0);
 
@@ -96,7 +98,7 @@ contract VolumeTrackerHook is BaseHook, Access, Option {
             if (!key.currency1.isNative() && Currency.unwrap(key.currency0) != OK) return (this.afterSwap.selector, 0);
 
             // We only consider swaps in one direction (in our case when user buys OKB)
-            if (swapParams.zeroForOne) return (this.afterSwap.selector, 0);
+            if (swapParams.zeroForOne) return (this.afterSwap.selector, 0);            
         }
 
         // if amountSpecified < 0:
@@ -111,7 +113,7 @@ contract VolumeTrackerHook is BaseHook, Access, Option {
 
         // get the current tick
         (, int24 tick,,) = poolManager.getSlot0(key.toId());
-
+        
         // get the spot price as sqrt price
         uint256 spotPrice = TickMath.getSqrtPriceAtTick(tick);
 
@@ -124,21 +126,21 @@ contract VolumeTrackerHook is BaseHook, Access, Option {
         // x is the liquidity and y is the strike price
         // The two points that are known are (x2, y2) = (0, max * price) and (x1, y1) = (threshold, min * price)
         // Substituting in the formula, we have y = min * price + (max * price) / threshold * (threshold - x)
-        if (liquidity > threshold) {
-            // This is the constant line of the piecewise function
+        if(liquidity > threshold){
+            // This is the constant line of the piecewise function 
             strikePrice = (spotPrice * min) / 10;
         } else {
             // This is the the decreasing straight line of the piecewise function that is obtained from the
             // formula described above
-            strikePrice =
-                (spotPrice * min) / 10 + ((max - min) * spotPrice / (10 * threshold)) * (threshold - liquidity);
+            strikePrice = (spotPrice * min) / 10 + 
+            ((max - min) * spotPrice / (10 * threshold)) * (threshold - liquidity);
         }
 
-        // Considering that expiryPrice = spotPrice/ y
+        // Considering that expiryPrice = spotPrice/ y 
         // -> expiryPrice = spotPrice/ (strikePrice/spotPrice) = spotPrice*spotPrice/strikePrice
         uint256 expiryPrice = (spotPrice / strikePrice) * spotPrice;
 
-        _mintOption(user, swapAmount * factor / DIVIDE_FACTOR, strikePrice, expiryPrice);
+        _mintOption(user, swapAmount * factor, strikePrice, expiryPrice);
 
         return (this.afterSwap.selector, 0);
     }
