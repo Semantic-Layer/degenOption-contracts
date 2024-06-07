@@ -109,6 +109,15 @@ contract NarrativeController is IERC1155Receiver, Ownable2Step {
         }
     }
 
+     * @notice allow admin to set buy back
+     * @param _buyBackHookControl bool to setBuyBack
+     */
+    function setBuyBack(bool _buyBackHookControl) public onlyOwner {
+        buyBackHookControl = _buyBackHookControl;
+
+        emit BuyBackHookControllSet(_buyBackHookControl);
+    }
+
     // ================= internal function ==============
 
     /**
