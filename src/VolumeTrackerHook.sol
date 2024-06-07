@@ -30,6 +30,7 @@ contract VolumeTrackerHook is BaseHook, Access, Option {
     // state variables should typically be unique to a pool
     // a single hook contract should be able to service multiple pools
     // ---------------------------------------------------------------
+    uint256 public constant DIVIDE_FACTOR = 1000;
     uint256 public factor;
     address public developer;
     uint256 public min = 12; // the minimum is 1.2
@@ -140,7 +141,7 @@ contract VolumeTrackerHook is BaseHook, Access, Option {
         // -> expiryPrice = spotPrice/ (strikePrice/spotPrice) = spotPrice*spotPrice/strikePrice
         uint256 expiryPrice = (spotPrice / strikePrice) * spotPrice;
 
-        _mintOption(user, swapAmount * factor, strikePrice, expiryPrice);
+        _mintOption(user, swapAmount * factor / DIVIDE_FACTOR, strikePrice, expiryPrice);
 
         return (this.afterSwap.selector, 0);
     }
