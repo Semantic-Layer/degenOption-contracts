@@ -35,7 +35,7 @@ contract VolumeTrackerHook is BaseHook, Access, Option {
     uint256 public max = 32; // the maximim is 3.2
     // if the liquidity is greater than the threshold, the strike price corresponds to the min
     uint256 public threshold = 100 ether; 
-    address public okb;
+    address public immutable OK;
 
     mapping(address user => uint256 swapAmount) public afterSwapCount;
 
@@ -46,7 +46,7 @@ contract VolumeTrackerHook is BaseHook, Access, Option {
         Option(_uri)
     {
         ratio = _ratio;
-        okb = _okb;
+        OK = _okb;
     }
 
     function getHookPermissions() public pure override returns (Hooks.Permissions memory) {
@@ -83,15 +83,15 @@ contract VolumeTrackerHook is BaseHook, Access, Option {
         // The address which should receive the option should be set as an input in hookdata
         address user = abi.decode(hookdata, (address));
 
-        if(Currency.wrap(address(0)) < Currency.wrap(okb)){
+        if(Currency.wrap(address(0)) < Currency.wrap(OK)){
             // If this is not an ETH-OKB pool with this hook attached, ignore
-            if (!key.currency0.isNative() && Currency.unwrap(key.currency1) != okb) return (this.afterSwap.selector, 0);
+            if (!key.currency0.isNative() && Currency.unwrap(key.currency1) != OK) return (this.afterSwap.selector, 0);
 
             // We only consider swaps in one direction (in our case when user buys OKB)
             if (!swapParams.zeroForOne) return (this.afterSwap.selector, 0);
         } else {
             // If this is not an OKB-ETH pool with this hook attached, ignore
-            if (!key.currency1.isNative() && Currency.unwrap(key.currency0) != okb) return (this.afterSwap.selector, 0);
+            if (!key.currency1.isNative() && Currency.unwrap(key.currency0) != OK) return (this.afterSwap.selector, 0);
 
             // We only consider swaps in one direction (in our case when user buys OKB)
             if (swapParams.zeroForOne) return (this.afterSwap.selector, 0);            
