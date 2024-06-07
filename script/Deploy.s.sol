@@ -48,6 +48,7 @@ contract Deploy is Script, Deployers {
 contract MineAddress is Script, Deployers {
     uint256 deployerPrivateKey = vm.envUint("DEPLOYER_PRIVATE_KEY");
     address internal deployer = vm.addr(deployerPrivateKey);
+    address creat2deployerProxy  = 0x4e59b44847b379578588920cA78FbF26c0B4956C;
     Create2Deployer create2deployer = Create2Deployer(0x98B2920D53612483F91F12Ed7754E51b4A77919e);
     // Create3Deployer create3deployer = Create3Deployer(0x6513Aedb4D1593BA12e50644401D976aebDc90d8);
     PoolKey poolKey;
@@ -59,11 +60,12 @@ contract MineAddress is Script, Deployers {
     Currency tokenCurrency = Currency.wrap(address(OK));
 
     DeployFactory deployFactory = DeployFactory(0x617346FACCe2491B840877e99A638902af54DE0B);
+    VolumeTrackerHook hook;
 
     function run() public {
         vm.startBroadcast(deployerPrivateKey);
 
-        (address hookAddress, bytes32 salt) = findAddress(address(create2deployer));
+        (address hookAddress, bytes32 salt) = findAddress(address(creat2deployerProxy));
         bytes memory deployBytecode = type(VolumeTrackerHook).creationCode;
 
         console2.log("deployHook");
@@ -73,13 +75,14 @@ contract MineAddress is Script, Deployers {
         );
 
         // address hookAddr = deployFactory.deploy(salt, creationCodeWithArgs);
-        address hookAddr = create2deployer.deploy(creationCodeWithArgs, salt);
+        // address hookAddr = create2deployer.deploy(creationCodeWithArgs, salt);
+        hook = new VolumeTrackerHook{salt:salt}(poolManager, "",1 , address(OK), deployer);
 
-        console2.log("hook deployed at", hookAddr);
-        require(hookAddress == hookAddr, "wrong deploy");
+        console2.log("hook deployed at", address(hook));
+        require(hookAddress == address(hook), "wrong deploy");
 
         console2.log("init pool");
-        poolKey = PoolKey(ethCurrency, tokenCurrency, 3000, 60, IHooks(hookAddr));
+        poolKey = PoolKey(ethCurrency, tokenCurrency, 3000, 60, IHooks(address(hook)));
         poolManager.initialize(poolKey, SQRT_PRICE_1_1, ZERO_BYTES);
         vm.stopBroadcast();
 
@@ -101,6 +104,7 @@ contract MineAddress is Script, Deployers {
 
         return (hookAddress, salt);
     }
+
 }
 
 contract DeployFactory {
