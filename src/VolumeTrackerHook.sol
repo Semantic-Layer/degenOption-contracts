@@ -45,7 +45,7 @@ contract VolumeTrackerHook is BaseHook, Access, Option {
         Access(_admin, _keeper)
         Option(_uri)
     {
-        ratio = _ratio;
+        factor = _ratio;
         OK = _okb;
     }
 
@@ -136,15 +136,15 @@ contract VolumeTrackerHook is BaseHook, Access, Option {
         // -> expiryPrice = spotPrice/ (strikePrice/spotPrice) = spotPrice*spotPrice/strikePrice
         uint256 expiryPrice = (spotPrice / strikePrice) * spotPrice;
 
-        _mintOption(user, swapAmount / ratio, strikePrice, expiryPrice);
+        _mintOption(user, swapAmount * factor, strikePrice, expiryPrice);
 
         return (this.afterSwap.selector, 0);
     }
 
-    function updateRatio(uint256 newRatio) public onlyRole(DEFAULT_ADMIN_ROLE) {
-        require(newRatio != 0);
+    function updateFactor(uint256 newFactor) public onlyRole(DEFAULT_ADMIN_ROLE) {
+        require(newFactor != 0);
 
-        ratio = newRatio;
+        factor = newFactor;
     }
 
     function updateThreshold(uint256 newThreshold) public onlyRole(DEFAULT_ADMIN_ROLE) {
