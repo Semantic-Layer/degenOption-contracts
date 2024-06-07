@@ -44,14 +44,11 @@ contract VolumeTrackerHook is BaseHook, Access, Option {
 
     mapping(address user => uint256 swapAmount) public afterSwapCount;
 
-    constructor(
-        IPoolManager _poolManager,
-        string memory _uri,
-        uint256 _ratio,
-        address _okb,
-        address _admin,
-        address _keeper
-    ) BaseHook(_poolManager) Access(_admin, _keeper) Option(_uri) {
+    constructor(IPoolManager _poolManager, string memory _uri, uint256 _ratio, address _okb, address _admin)
+        BaseHook(_poolManager)
+        Access(_admin)
+        Option(_uri)
+    {
         factor = _ratio;
         OK = _okb;
         id = PoolKey(Currency.wrap(address(0)), Currency.wrap(address(_okb)), 3000, 60, IHooks(address(this))).toId();

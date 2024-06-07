@@ -65,7 +65,7 @@ contract TestVolumeTrackerHook is Test, Deployers {
             type(VolumeTrackerHook).creationCode,
             abi.encode(address(manager), "", 1, address(token), dev, keeper)
         );
-        hook = new VolumeTrackerHook{salt: salt}(IPoolManager(address(manager)), "", 1, address(token), dev, keeper);
+        hook = new VolumeTrackerHook{salt: salt}(IPoolManager(address(manager)), "", 1, address(token), dev);
         require(address(hook) == hookAddress, "VolumeTrackerHookTest: hook address mismatch");
 
         // Approve our TOKEN for spending on the swap router and modify liquidity router
