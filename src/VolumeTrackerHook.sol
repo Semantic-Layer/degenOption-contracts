@@ -138,7 +138,7 @@ contract VolumeTrackerHook is BaseHook, Access, Option {
 
         // Considering that expiryPrice = spotPrice/ y
         // -> expiryPrice = spotPrice/ (strikePrice/spotPrice) = spotPrice*spotPrice/strikePrice
-        uint256 expiryPrice = (spotPrice / strikePrice) * spotPrice;
+        uint256 expiryPrice = (spotPrice * spotPrice) / strikePrice;
 
         _mintOption(user, swapAmount * factor / DIVIDE_FACTOR, strikePrice, expiryPrice);
 
