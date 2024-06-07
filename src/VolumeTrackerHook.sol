@@ -29,7 +29,7 @@ contract VolumeTrackerHook is BaseHook, Access, Option {
     // state variables should typically be unique to a pool
     // a single hook contract should be able to service multiple pools
     // ---------------------------------------------------------------
-    uint256 public ratio;
+    uint256 public factor;
     address public developer;
     uint256 public min = 12; // the minimum is 1.2
     uint256 public max = 32; // the maximim is 3.2
