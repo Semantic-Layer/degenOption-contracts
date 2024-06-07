@@ -74,10 +74,10 @@ abstract contract Option is ERC1155, ERC1155Supply, ERC1155Burnable, Access {
                 OptionToken({void: false, tokenId: newTokenId, strikePrice: strikePrice, expiryPrice: expiryPrice});
 
             // add this new tokenId into expiryPrice2TokenIds
-            expiryPrice2TokenIds[expiryPrice].add(nextTokenId);
+            expiryPrice2TokenIds[expiryPrice].add(newTokenId);
 
             // update option2TokenId
-            option2TokenId[optionKey] = nextTokenId;
+            option2TokenId[optionKey] = newTokenId;
         }
     }
 
