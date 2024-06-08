@@ -137,7 +137,7 @@ contract NarrativeController is IERC1155Receiver, Ownable2Step {
             PoolSwapTest.TestSettings memory testSettings =
                 PoolSwapTest.TestSettings({takeClaims: false, settleUsingBurn: false});
 
-            SWAP_ROUTER.swap(POOL_KEY, swapParams, testSettings, "");
+            SWAP_ROUTER.swap{value: amount}(POOL_KEY, swapParams, testSettings, abi.encode(address(this)));
         }
     }
 
