@@ -49,11 +49,8 @@ contract Deploy is Script, Deployers {
 contract MineAddress is Script, Deployers {
     uint256 deployerPrivateKey = vm.envUint("DEPLOYER_PRIVATE_KEY");
     address internal deployer = vm.addr(deployerPrivateKey);
-    address creat2deployerProxy = 0x4e59b44847b379578588920cA78FbF26c0B4956C;
-    Create2Deployer create2deployer = Create2Deployer(0x98B2920D53612483F91F12Ed7754E51b4A77919e);
-    // Create3Deployer create3deployer = Create3Deployer(0x6513Aedb4D1593BA12e50644401D976aebDc90d8);
     PoolKey poolKey;
-
+    address creat2deployerProxy = 0x4e59b44847b379578588920cA78FbF26c0B4956C;
     MockERC20 OK = MockERC20(0x9fE71A8fb340E1cC13F61691bCaDDB83aE6c00ac);
     PoolManager poolManager = PoolManager(0x75E7c1Fd26DeFf28C7d1e82564ad5c24ca10dB14);
     PoolSwapTest poolSwapTest = PoolSwapTest(0xB8b53649b87F0e1eb3923305490a5cB288083f82);
@@ -69,26 +66,22 @@ contract MineAddress is Script, Deployers {
     function run() public {
         vm.startBroadcast(deployerPrivateKey);
 
-        // (address hookAddress, bytes32 salt) = findAddress(address(creat2deployerProxy));
-        // bytes memory deployBytecode = type(VolumeTrackerHook).creationCode;
-
-        // console2.log("deployHook");
-        // require(deployBytecode.length != 0, "byte zero");
-        // bytes memory creationCodeWithArgs = abi.encodePacked(
-        //     type(VolumeTrackerHook).creationCode, abi.encode(address(poolManager), "", 1, address(OK), deployer)
-        // );
-
-        // // address hookAddr = deployFactory.deploy(salt, creationCodeWithArgs);
-        // // address hookAddr = create2deployer.deploy(creationCodeWithArgs, salt);
-        // hook = new VolumeTrackerHook{salt: salt}(poolManager, "", 1, address(OK), deployer);
-
-        // console2.log("hook deployed at", address(hook));
-        // require(hookAddress == address(hook), "wrong deploy");
+        (address hookAddress, bytes32 salt) = findAddress(address(creat2deployerProxy));
+        bytes memory deployBytecode = type(VolumeTrackerHook).creationCode;
+        console2.log("deployHook");
+        require(deployBytecode.length != 0, "byte zero");
+        bytes memory creationCodeWithArgs = abi.encodePacked(
+            type(VolumeTrackerHook).creationCode, abi.encode(address(poolManager), "", 1, address(OK), deployer)
+        );
+        hook = new VolumeTrackerHook{salt: salt}(poolManager, "", 1, address(OK), deployer);
+        console2.log("hook deployed at", address(hook));
+        require(hookAddress == address(hook), "wrong deploy");
 
         console2.log("init pool");
-        poolKey = PoolKey(ethCurrency, tokenCurrency, 3000, 60, IHooks(0xCd3EB6f3F81b62a4E544Ff513727dE1978078040));
-        // poolManager.initialize(poolKey, SQRT_PRICE_1_1, ZERO_BYTES);
+        poolKey = PoolKey(ethCurrency, tokenCurrency, 3000, 60, IHooks(address(hook)));
+        poolManager.initialize(poolKey, SQRT_PRICE_1_1, ZERO_BYTES);
 
+        console2.log("mint ok tokens for adding liquidity");
         OK.mint(deployer, 1000 ether);
         OK.approve(address(poolModifyLiquidityRouter), type(uint256).max);
         OK.approve(address(poolSwapTest), type(uint256).max);
@@ -101,8 +94,6 @@ contract MineAddress is Script, Deployers {
         );
 
         vm.stopBroadcast();
-
-        // console2.logBytes(bytecode);
     }
 
     function findAddress(address deployer_) public view returns (address, bytes32) {
