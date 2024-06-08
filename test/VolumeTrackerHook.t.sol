@@ -22,6 +22,10 @@ import {Hooks} from "v4-core/libraries/Hooks.sol";
 import {TickMath} from "v4-core/libraries/TickMath.sol";
 
 import {VolumeTrackerHook} from "../src/VolumeTrackerHook.sol";
+import {NarrativeController} from "../src/NarrativeController.sol";
+import {Option} from "../src/Option.sol";
+import "../src/libraries/TickPriceLib.sol";
+import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {HookMiner} from "./utils/HookMiner.sol";
 
 contract TestVolumeTrackerHook is Test, Deployers {
@@ -31,18 +35,17 @@ contract TestVolumeTrackerHook is Test, Deployers {
 
     MockERC20 token;
     VolumeTrackerHook hook;
+    NarrativeController narrativeController;
 
     Currency ethCurrency = Currency.wrap(address(0));
     Currency tokenCurrency;
 
     uint256 internal devPrivatekey = 0xde111;
-    uint256 internal keeperPrivateKey = 0x3333;
     uint256 internal okbPrivateKey = 0x1111;
     uint256 internal userPrivateKey = 0xad111;
 
     address internal user = vm.addr(userPrivateKey);
     address internal dev = vm.addr(devPrivatekey);
-    address internal keeper = vm.addr(keeperPrivateKey);
     address internal okb = vm.addr(okbPrivateKey);
 
     function setUp() public {
@@ -53,9 +56,8 @@ contract TestVolumeTrackerHook is Test, Deployers {
         token = new MockERC20("OKB Token", "OKB", 18);
         tokenCurrency = Currency.wrap(address(token));
 
-        // Mint a bunch of TOKEN to ourselves and to address(user)
+        // Mint a bunch of TOKEN to ourselves
         token.mint(address(this), 1000 ether);
-        token.mint(address(user), 1000 ether);
 
         // Deploy the hook to an address with the correct flags
         uint160 flags = uint160(Hooks.AFTER_SWAP_FLAG);
@@ -63,7 +65,7 @@ contract TestVolumeTrackerHook is Test, Deployers {
             address(this),
             flags,
             type(VolumeTrackerHook).creationCode,
-            abi.encode(address(manager), "", 1, address(token), dev, keeper)
+            abi.encode(address(manager), "", 1, address(token), dev)
         );
         hook = new VolumeTrackerHook{salt: salt}(IPoolManager(address(manager)), "", 1, address(token), dev);
         require(address(hook) == hookAddress, "VolumeTrackerHookTest: hook address mismatch");
@@ -77,59 +79,26 @@ contract TestVolumeTrackerHook is Test, Deployers {
         key = PoolKey(ethCurrency, tokenCurrency, 3000, 60, IHooks(address(hook)));
         manager.initialize(key, SQRT_PRICE_1_1, ZERO_BYTES);
 
-        // Provide liquidity to the pool
-        /*
-        modifyLiquidityRouter.modifyLiquidity(key, IPoolManager.ModifyLiquidityParams(-60, 60, 10 ether, 0), ZERO_BYTES);
-        modifyLiquidityRouter.modifyLiquidity(
-            key, IPoolManager.ModifyLiquidityParams(-120, 120, 10 ether, 0), ZERO_BYTES
-        );
-        modifyLiquidityRouter.modifyLiquidity(
-            key,
-            IPoolManager.ModifyLiquidityParams(TickMath.minUsableTick(60), TickMath.maxUsableTick(60), 10 ether, 0),
-            ZERO_BYTES
-        );
-        */
-    }
+        // Deploy NarrativeController contract
+        narrativeController = new NarrativeController(dev, IERC20(address(token)), Option(hook), key, swapRouter);
 
-    function test_addLiquidityAndSwap() public {
+        // Mint a bunch of TOKEN to the narrative controller contract
+        token.mint(address(narrativeController), 1000 ether);
+
+        // Provide liquidity to the pool
+        
         // How we landed on 0.003 ether here is based on computing value of x and y given
         // total value of delta L (liquidity delta) = 1 ether
         // This is done by computing x and y from the equation shown in Ticks and Q64.96 Numbers lesson
         // View the full code for this lesson on GitHub which has additional comments
         // showing the exact computation and a Python script to do that calculation for you
-        console.log(IPoolManager(address(manager)).getLiquidity(key.toId()));
-
         modifyLiquidityRouter.modifyLiquidity{value: 0.003 ether}(
             key,
             IPoolManager.ModifyLiquidityParams({tickLower: -60, tickUpper: 60, liquidityDelta: 1 ether, salt: 0}),
             ZERO_BYTES
         );
 
-        console.log(IPoolManager(address(manager)).getLiquidity(key.toId()));
-
         bytes memory hookData = abi.encode(address(user));
-
-        /*
-        uint256 pointsBalanceAfterAddLiquidity = hook.balanceOf(address(this));
-
-        // The exact amount of ETH we're adding (x)
-        // is roughly 0.299535... ETH
-        // Our original POINTS balance was 0
-                // so after adding liquidity we should have roughly 0.299535... POINTS tokens
-        assertApproxEqAbs(
-            pointsBalanceAfterAddLiquidity - pointsBalanceOriginal,
-            2995354955910434,
-            0.0001 ether // error margin for precision loss
-        );
-        */
-        //Check the mapping before the swap
-        //hook.afterSwapCount(address(this));
-        //console2.log(hook.afterSwapCount(address(this)));
-
-        // Now we swap
-        // We will swap 0.001 ether for tokens
-        // We should get 20% of 0.001 * 10**18 points
-        // = 2 * 10**14
 
         swapRouter.swap{value: 0.001 ether}(
             key,
@@ -141,15 +110,105 @@ contract TestVolumeTrackerHook is Test, Deployers {
             PoolSwapTest.TestSettings({takeClaims: true, settleUsingBurn: false}),
             hookData
         );
-        /*
-        uint256 pointsBalanceAfterSwap = hook.balanceOf(address(this));
-        assertEq(
-            pointsBalanceAfterSwap - pointsBalanceAfterAddLiquidity,
-            2 * 10 ** 14
-        );
-        */
-        // Check the mapping after the swap
-        //hook.afterSwapCount(address(this));
-        //console2.log(hook.afterSwapCount(address(this)));
+
     }
+
+    function test_mintOption() public {
+        // Confirm that the option was issued
+        assertEq(hook.isOptionTokenValid(1), true);
+
+        // These values were calculated from logging the values directly from the hook
+        uint256 strikePrice1 = 251693749733777908291279597518;
+        uint256 expiryPrice1 = 24889615696832107675131794113;
+
+        // Get the values of the option from the tokenId
+        (bool void, uint256 tokenId, uint256 strikePrice, uint256 expiryPrice) = hook.tokenId2Option(1);
+
+        assertEq(void, false);
+        assertEq(strikePrice, strikePrice1);
+        assertEq(expiryPrice, expiryPrice1);
+        assertEq(tokenId, 1);
+
+        // Confirm that the tokenId corresponds to the strike and expiry price
+        assertEq(hook.getTokenId(strikePrice, expiryPrice), 1);
+
+        // Confirm that there is one valid option with the expiry price
+        assertEq(hook.getNumberOfValidToken(expiryPrice), 1);
+
+    }
+
+    function test_redeemInNarrativeControlerWithoutBuyBack() public {
+        console.log(token.balanceOf(address(narrativeController)));
+        console.log(hook.balanceOf(address(user), 1));
+        assertEq(hook.isOptionTokenValid(1), true);
+
+        (,, uint256 strikePrice,) = hook.tokenId2Option(1);
+
+        //Let's consider that the user want to redeem the entire option
+        uint256 amount = hook.balanceOf(address(user), 1);
+
+        console.log(TickPriceLib.getQuoteAtSqrtPrice(uint160(strikePrice), uint128(amount), address(token), address(0)));
+
+        uint256 ethToSend = TickPriceLib.getQuoteAtSqrtPrice(uint160(strikePrice), uint128(amount), address(token), address(0));
+
+        // User wants to redeem the option
+        vm.startPrank(user);
+        vm.deal(user, 1 ether);
+
+        // Get the balance of the user of ETH and ok
+        assertEq(token.balanceOf(address(user)),0);
+        assertEq(user.balance,1 ether);
+
+
+        hook.setApprovalForAll(address(narrativeController), true);
+            (bool success,) =
+        address(narrativeController).call{value: ethToSend}(abi.encodeWithSignature("exerciseOptionByTokenId(uint256,uint256)", 1, amount));
+        require(success, "ETH transfer fail");
+
+        // Check that the balances were updated accordingly
+        assertEq(token.balanceOf(address(user)),amount);
+        assertEq(user.balance,1 ether - ethToSend);
+        vm.stopPrank();
+
+    }
+
+    function test_redeemInNarrativeControlerWithBuyBack() public {
+        assertEq(hook.isOptionTokenValid(1), true);
+
+        (,, uint256 strikePrice,) = hook.tokenId2Option(1);
+
+        // Enable buyback
+        vm.startPrank(dev);
+        assertEq(narrativeController.buyBackHookControl(), false);
+        narrativeController.setBuyBack(true);
+        assertEq(narrativeController.buyBackHookControl(), true);
+        vm.stopPrank();
+
+        //Let's consider that the user want to redeem the entire option
+        uint256 amount = hook.balanceOf(address(user), 1);
+
+        console.log(TickPriceLib.getQuoteAtSqrtPrice(uint160(strikePrice), uint128(amount), address(token), address(0)));
+
+        uint256 ethToSend = TickPriceLib.getQuoteAtSqrtPrice(uint160(strikePrice), uint128(amount), address(token), address(0));
+
+        // User wants to redeem the option
+        vm.startPrank(user);
+        vm.deal(user, 1 ether);
+
+        // Get the balance of the user of ETH and ok
+        assertEq(token.balanceOf(address(user)),0);
+        assertEq(user.balance,1 ether);
+
+
+        hook.setApprovalForAll(address(narrativeController), true);
+            (bool success,) =
+        address(narrativeController).call{value: ethToSend}(abi.encodeWithSignature("exerciseOptionByTokenId(uint256,uint256)", 1, amount));
+        require(success, "ETH transfer fail");
+
+        // Check that the balances were updated accordingly
+        assertEq(token.balanceOf(address(user)),amount);
+        assertEq(user.balance,1 ether - ethToSend);
+        vm.stopPrank();
+
+    }  
 }
