@@ -86,7 +86,7 @@ contract TestVolumeTrackerHook is Test, Deployers {
         token.mint(address(narrativeController), 1000 ether);
 
         // Provide liquidity to the pool
-        
+
         // How we landed on 0.003 ether here is based on computing value of x and y given
         // total value of delta L (liquidity delta) = 1 ether
         // This is done by computing x and y from the equation shown in Ticks and Q64.96 Numbers lesson
@@ -110,7 +110,6 @@ contract TestVolumeTrackerHook is Test, Deployers {
             PoolSwapTest.TestSettings({takeClaims: true, settleUsingBurn: false}),
             hookData
         );
-
     }
 
     function test_mintOption() public {
@@ -134,7 +133,6 @@ contract TestVolumeTrackerHook is Test, Deployers {
 
         // Confirm that there is one valid option with the expiry price
         assertEq(hook.getNumberOfValidToken(expiryPrice), 1);
-
     }
 
     function test_redeemInNarrativeControlerWithoutBuyBack() public {
@@ -149,27 +147,27 @@ contract TestVolumeTrackerHook is Test, Deployers {
 
         console.log(TickPriceLib.getQuoteAtSqrtPrice(uint160(strikePrice), uint128(amount), address(token), address(0)));
 
-        uint256 ethToSend = TickPriceLib.getQuoteAtSqrtPrice(uint160(strikePrice), uint128(amount), address(token), address(0));
+        uint256 ethToSend =
+            TickPriceLib.getQuoteAtSqrtPrice(uint160(strikePrice), uint128(amount), address(token), address(0));
 
         // User wants to redeem the option
         vm.startPrank(user);
         vm.deal(user, 1 ether);
 
         // Get the balance of the user of ETH and ok
-        assertEq(token.balanceOf(address(user)),0);
-        assertEq(user.balance,1 ether);
-
+        assertEq(token.balanceOf(address(user)), 0);
+        assertEq(user.balance, 1 ether);
 
         hook.setApprovalForAll(address(narrativeController), true);
-            (bool success,) =
-        address(narrativeController).call{value: ethToSend}(abi.encodeWithSignature("exerciseOptionByTokenId(uint256,uint256)", 1, amount));
+        (bool success,) = address(narrativeController).call{value: ethToSend}(
+            abi.encodeWithSignature("exerciseOptionByTokenId(uint256,uint256)", 1, amount)
+        );
         require(success, "ETH transfer fail");
 
         // Check that the balances were updated accordingly
-        assertEq(token.balanceOf(address(user)),amount);
-        assertEq(user.balance,1 ether - ethToSend);
+        assertEq(token.balanceOf(address(user)), amount);
+        assertEq(user.balance, 1 ether - ethToSend);
         vm.stopPrank();
-
     }
 
     function test_redeemInNarrativeControlerWithBuyBack() public {
@@ -189,26 +187,26 @@ contract TestVolumeTrackerHook is Test, Deployers {
 
         console.log(TickPriceLib.getQuoteAtSqrtPrice(uint160(strikePrice), uint128(amount), address(token), address(0)));
 
-        uint256 ethToSend = TickPriceLib.getQuoteAtSqrtPrice(uint160(strikePrice), uint128(amount), address(token), address(0));
+        uint256 ethToSend =
+            TickPriceLib.getQuoteAtSqrtPrice(uint160(strikePrice), uint128(amount), address(token), address(0));
 
         // User wants to redeem the option
         vm.startPrank(user);
         vm.deal(user, 1 ether);
 
         // Get the balance of the user of ETH and ok
-        assertEq(token.balanceOf(address(user)),0);
-        assertEq(user.balance,1 ether);
-
+        assertEq(token.balanceOf(address(user)), 0);
+        assertEq(user.balance, 1 ether);
 
         hook.setApprovalForAll(address(narrativeController), true);
-            (bool success,) =
-        address(narrativeController).call{value: ethToSend}(abi.encodeWithSignature("exerciseOptionByTokenId(uint256,uint256)", 1, amount));
+        (bool success,) = address(narrativeController).call{value: ethToSend}(
+            abi.encodeWithSignature("exerciseOptionByTokenId(uint256,uint256)", 1, amount)
+        );
         require(success, "ETH transfer fail");
 
         // Check that the balances were updated accordingly
-        assertEq(token.balanceOf(address(user)),amount);
-        assertEq(user.balance,1 ether - ethToSend);
+        assertEq(token.balanceOf(address(user)), amount);
+        assertEq(user.balance, 1 ether - ethToSend);
         vm.stopPrank();
-
-    }  
+    }
 }

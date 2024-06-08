@@ -19,36 +19,6 @@ import "../test/utils/HookMiner.sol";
 contract Deploy is Script, Deployers {
     uint256 deployerPrivateKey = vm.envUint("DEPLOYER_PRIVATE_KEY");
     address internal deployer = vm.addr(deployerPrivateKey);
-
-    address create2depoyProxy = 0x4e59b44847b379578588920cA78FbF26c0B4956C;
-
-    PoolManager poolManager = PoolManager(0x75E7c1Fd26DeFf28C7d1e82564ad5c24ca10dB14);
-    PoolSwapTest poolSwapTest = PoolSwapTest(0xB8b53649b87F0e1eb3923305490a5cB288083f82);
-
-    // hookAddress = 0x26309e1Ac538e0731242ac060923800a57B28040;
-
-    MockERC20 OK = MockERC20(0x9fE71A8fb340E1cC13F61691bCaDDB83aE6c00ac);
-
-    Currency ethCurrency = Currency.wrap(address(0));
-    Currency tokenCurrency = Currency.wrap(address(OK));
-    VolumeTrackerHook hook;
-    NarrativeController NC;
-
-    function run() public {
-        vm.startBroadcast(deployerPrivateKey);
-
-        // OK.mint(address(this), 1000 ether);
-        // OK.mint(address(deployer), 1000 ether);
-
-        // console2.log("deploy NC");
-
-        vm.stopBroadcast();
-    }
-}
-
-contract MineAddress is Script, Deployers {
-    uint256 deployerPrivateKey = vm.envUint("DEPLOYER_PRIVATE_KEY");
-    address internal deployer = vm.addr(deployerPrivateKey);
     PoolKey poolKey;
     address creat2deployerProxy = 0x4e59b44847b379578588920cA78FbF26c0B4956C;
     MockERC20 OK = MockERC20(0x9fE71A8fb340E1cC13F61691bCaDDB83aE6c00ac);
@@ -56,8 +26,6 @@ contract MineAddress is Script, Deployers {
     PoolSwapTest poolSwapTest = PoolSwapTest(0xB8b53649b87F0e1eb3923305490a5cB288083f82);
     Currency ethCurrency = Currency.wrap(address(0));
     Currency tokenCurrency = Currency.wrap(address(OK));
-
-    DeployFactory deployFactory = DeployFactory(0x617346FACCe2491B840877e99A638902af54DE0B);
     VolumeTrackerHook hook;
 
     PoolModifyLiquidityTest poolModifyLiquidityRouter =
@@ -66,31 +34,42 @@ contract MineAddress is Script, Deployers {
     function run() public {
         vm.startBroadcast(deployerPrivateKey);
 
-        (address hookAddress, bytes32 salt) = findAddress(address(creat2deployerProxy));
-        bytes memory deployBytecode = type(VolumeTrackerHook).creationCode;
-        console2.log("deployHook");
-        require(deployBytecode.length != 0, "byte zero");
-        bytes memory creationCodeWithArgs = abi.encodePacked(
-            type(VolumeTrackerHook).creationCode, abi.encode(address(poolManager), "", 1, address(OK), deployer)
-        );
-        hook = new VolumeTrackerHook{salt: salt}(poolManager, "", 1, address(OK), deployer);
-        console2.log("hook deployed at", address(hook));
-        require(hookAddress == address(hook), "wrong deploy");
+        // (address hookAddress, bytes32 salt) = findAddress(address(creat2deployerProxy));
+        // bytes memory deployBytecode = type(VolumeTrackerHook).creationCode;
+        // console2.log("deployHook");
+        // require(deployBytecode.length != 0, "byte zero");
 
-        console2.log("init pool");
-        poolKey = PoolKey(ethCurrency, tokenCurrency, 3000, 60, IHooks(address(hook)));
-        poolManager.initialize(poolKey, SQRT_PRICE_1_1, ZERO_BYTES);
+        // hook = new VolumeTrackerHook{salt: salt}(poolManager, "", 1, address(OK), deployer);
+        // console2.log("hook deployed at", address(hook));
+        // require(hookAddress == address(hook), "wrong deploy");
 
-        console2.log("mint ok tokens for adding liquidity");
-        OK.mint(deployer, 1000 ether);
-        OK.approve(address(poolModifyLiquidityRouter), type(uint256).max);
-        OK.approve(address(poolSwapTest), type(uint256).max);
+        // console2.log("init pool");
+        // poolKey = PoolKey(ethCurrency, tokenCurrency, 3000, 60, IHooks(address(hook)));
+        // poolManager.initialize(poolKey, SQRT_PRICE_1_1, ZERO_BYTES);
 
-        console2.log("add liquidity");
-        poolModifyLiquidityRouter.modifyLiquidity{value: 0.003 ether}(
+        // console2.log("mint ok tokens for adding liquidity");
+        // OK.mint(deployer, 1000 ether);
+        // OK.approve(address(poolModifyLiquidityRouter), type(uint256).max);
+        // OK.approve(address(poolSwapTest), type(uint256).max);
+
+        // console2.log("add liquidity");
+        // poolModifyLiquidityRouter.modifyLiquidity{value: 0.003 ether}(
+        //     poolKey,
+        //     IPoolManager.ModifyLiquidityParams({tickLower: -60, tickUpper: 60, liquidityDelta: 1 ether, salt: 0}),
+        //     ZERO_BYTES
+        // );
+
+        console2.log("swap");
+        poolKey = PoolKey(ethCurrency, tokenCurrency, 3000, 60, IHooks(address(0x8Db2126407C061e04092b0e1FA0e941E94BE0040)));
+        poolSwapTest.swap{value: 0.001 ether}(
             poolKey,
-            IPoolManager.ModifyLiquidityParams({tickLower: -60, tickUpper: 60, liquidityDelta: 1 ether, salt: 0}),
-            ZERO_BYTES
+            IPoolManager.SwapParams({
+                zeroForOne: true,
+                amountSpecified: -0.001 ether, // Exact input for output swap
+                sqrtPriceLimitX96: TickMath.MIN_SQRT_PRICE + 1
+            }),
+            PoolSwapTest.TestSettings({takeClaims: true, settleUsingBurn: false}),
+            ""
         );
 
         vm.stopBroadcast();
@@ -111,50 +90,4 @@ contract MineAddress is Script, Deployers {
 
         return (hookAddress, salt);
     }
-}
-
-contract AddLiquidity is Script, Deployers {
-    uint256 deployerPrivateKey = vm.envUint("DEPLOYER_PRIVATE_KEY");
-    address internal deployer = vm.addr(deployerPrivateKey);
-    address creat2deployerProxy = 0x4e59b44847b379578588920cA78FbF26c0B4956C;
-
-    MockERC20 OK = MockERC20(0x9fE71A8fb340E1cC13F61691bCaDDB83aE6c00ac);
-    PoolManager poolManager = PoolManager(0x75E7c1Fd26DeFf28C7d1e82564ad5c24ca10dB14);
-    PoolSwapTest poolSwapTest = PoolSwapTest(0xB8b53649b87F0e1eb3923305490a5cB288083f82);
-    PoolModifyLiquidityTest poolModifyLiquidityRouter =
-        PoolModifyLiquidityTest(0x2b925D1036E2E17F79CF9bB44ef91B95a3f9a084);
-    Currency ethCurrency = Currency.wrap(address(0));
-    Currency tokenCurrency = Currency.wrap(address(OK));
-
-    DeployFactory deployFactory = DeployFactory(0x617346FACCe2491B840877e99A638902af54DE0B);
-    VolumeTrackerHook hook = VolumeTrackerHook(0xCd3EB6f3F81b62a4E544Ff513727dE1978078040);
-
-    PoolKey poolKey = PoolKey(ethCurrency, tokenCurrency, 3000, 60, IHooks(address(hook)));
-
-    function run() public {
-        vm.startBroadcast(deployerPrivateKey);
-        poolModifyLiquidityRouter.modifyLiquidity{value: 0.003 ether}(
-            key,
-            IPoolManager.ModifyLiquidityParams({tickLower: -60, tickUpper: 60, liquidityDelta: 1 ether, salt: 0}),
-            ZERO_BYTES
-        );
-        vm.stopBroadcast();
-    }
-}
-
-contract DeployFactory {
-    function deploy(bytes32 salt, bytes memory bytecode) public returns (address) {
-        // Deploy the contract using Create2
-        address addr = Create2.deploy(0, salt, bytecode);
-        return addr;
-    }
-}
-
-//docs.axelar.dev/dev/solidity-utilities#create2-deployer
-interface Create2Deployer {
-    function deploy(bytes memory bytecode, bytes32 salt) external returns (address);
-}
-
-interface Create3Deployer {
-    function deploy(bytes memory bytecode, bytes32 salt) external returns (address);
 }
