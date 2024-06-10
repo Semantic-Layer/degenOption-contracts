@@ -108,11 +108,11 @@ contract NarrativeController is IERC1155Receiver, Ownable2Step {
             IERC20(token).safeTransfer(msg.sender, amount);
         }
     }
-
     /**
      * @notice allow admin to set buy back
      * @param _buyBackHookControl bool to setBuyBack
      */
+
     function setBuyBack(bool _buyBackHookControl) public onlyOwner {
         buyBackHookControl = _buyBackHookControl;
 

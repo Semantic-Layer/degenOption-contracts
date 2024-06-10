@@ -83,7 +83,7 @@ contract VolumeTrackerHook is BaseHook, Access, Option {
         IPoolManager.SwapParams calldata swapParams,
         BalanceDelta delta,
         bytes calldata hookdata
-    ) external override returns (bytes4, int128) {
+    ) external override poolManagerOnly returns (bytes4, int128) {
         // The address which should receive the option should be set as an input in hookdata
         address user = abi.decode(hookdata, (address));
 
