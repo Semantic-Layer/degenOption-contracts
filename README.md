@@ -6,7 +6,7 @@ Degen Option is a new type options for incentivizing trading volumes. Degen Opti
 
 ## Degen Option Dashboard Preview
 
-https://degen-option.firebaseapp.com/
+https://degen-option.web.app/
 
 ## Introduction
 
