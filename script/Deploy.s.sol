@@ -21,7 +21,7 @@ contract Deploy is Script, Deployers {
     address internal deployer = vm.addr(deployerPrivateKey);
     PoolKey poolKey;
     address creat2deployerProxy = 0x4e59b44847b379578588920cA78FbF26c0B4956C;
-    MockERC20 OK = MockERC20(0x9fE71A8fb340E1cC13F61691bCaDDB83aE6c00ac);
+    MockERC20 OK;
     PoolManager poolManager = PoolManager(0x75E7c1Fd26DeFf28C7d1e82564ad5c24ca10dB14);
     PoolSwapTest poolSwapTest = PoolSwapTest(0xB8b53649b87F0e1eb3923305490a5cB288083f82);
     Currency ethCurrency = Currency.wrap(address(0));
@@ -33,44 +33,51 @@ contract Deploy is Script, Deployers {
 
     function run() public {
         vm.startBroadcast(deployerPrivateKey);
+        console2.log("deploy $OK");
+        OK = new MockERC20("OK Token", "OK", 18);
+        console2.log("deployed $OK at ", address(OK));  
+        tokenCurrency = Currency.wrap(address(OK));
 
-        // (address hookAddress, bytes32 salt) = findAddress(address(creat2deployerProxy));
-        // bytes memory deployBytecode = type(VolumeTrackerHook).creationCode;
-        // console2.log("deployHook");
-        // require(deployBytecode.length != 0, "byte zero");
+        (address hookAddress, bytes32 salt) = findAddress(address(creat2deployerProxy));
+        bytes memory deployBytecode = type(VolumeTrackerHook).creationCode;
+        console2.log("deployHook");
+        require(deployBytecode.length != 0, "byte zero");
 
-        // hook = new VolumeTrackerHook{salt: salt}(poolManager, "", 1, address(OK), deployer);
-        // console2.log("hook deployed at", address(hook));
-        // require(hookAddress == address(hook), "wrong deploy");
+        hook = new VolumeTrackerHook{salt: salt}(poolManager, "", 1, address(OK), deployer);
+        console2.log("hook deployed at", address(hook));
+        require(hookAddress == address(hook), "wrong deploy");
 
-        // console2.log("init pool");
-        // poolKey = PoolKey(ethCurrency, tokenCurrency, 3000, 60, IHooks(address(hook)));
-        // poolManager.initialize(poolKey, SQRT_PRICE_1_1, ZERO_BYTES);
+        console2.log("init pool");
+        poolKey = PoolKey(ethCurrency, tokenCurrency, 3000, 60, IHooks(address(hook)));
+        poolManager.initialize(poolKey, SQRT_PRICE_1_1, ZERO_BYTES);
 
-        // console2.log("mint ok tokens for adding liquidity");
-        // OK.mint(deployer, 1000 ether);
-        // OK.approve(address(poolModifyLiquidityRouter), type(uint256).max);
-        // OK.approve(address(poolSwapTest), type(uint256).max);
+        console2.log("mint ok tokens for adding liquidity");
+        OK.mint(deployer, 1000 ether);
+        OK.approve(address(poolModifyLiquidityRouter), type(uint256).max);
+        OK.approve(address(poolSwapTest), type(uint256).max);
 
-        // console2.log("add liquidity");
-        // poolModifyLiquidityRouter.modifyLiquidity{value: 0.003 ether}(
-        //     poolKey,
-        //     IPoolManager.ModifyLiquidityParams({tickLower: -60, tickUpper: 60, liquidityDelta: 1 ether, salt: 0}),
-        //     ZERO_BYTES
-        // );
-
-        console2.log("swap");
-        poolKey = PoolKey(ethCurrency, tokenCurrency, 3000, 60, IHooks(address(0x8Db2126407C061e04092b0e1FA0e941E94BE0040)));
-        poolSwapTest.swap{value: 0.001 ether}(
+        console2.log("add liquidity");
+        poolModifyLiquidityRouter.modifyLiquidity{value: 0.5 ether}(
             poolKey,
-            IPoolManager.SwapParams({
-                zeroForOne: true,
-                amountSpecified: -0.001 ether, // Exact input for output swap
-                sqrtPriceLimitX96: TickMath.MIN_SQRT_PRICE + 1
-            }),
-            PoolSwapTest.TestSettings({takeClaims: true, settleUsingBurn: false}),
-            ""
+            IPoolManager.ModifyLiquidityParams({tickLower: -60, tickUpper: 60, liquidityDelta: 1 ether, salt: 0}),
+            ZERO_BYTES
         );
+
+
+
+        // console2.log("swap");
+        // poolKey = PoolKey(ethCurrency, tokenCurrency, 3000, 60, IHooks(address(hook)));
+        // poolSwapTest.swap{value: 0.001 ether}(
+        //     poolKey,
+        //     IPoolManager.SwapParams({
+        //         zeroForOne: true,
+        //         amountSpecified: -0.001 ether, // Exact input for output swap
+        //         sqrtPriceLimitX96: TickMath.MIN_SQRT_PRICE + 1
+        //     }),
+        //     PoolSwapTest.TestSettings({takeClaims: true, settleUsingBurn: false}),
+        //     abi.encode(address(deployer))
+        // );
+        // console2.logBytes(abi.encode(address(deployer)));
 
         vm.stopBroadcast();
     }
